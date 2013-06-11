@@ -29,7 +29,6 @@
 #define BCL_PARAM_MAX_ATTR      3
 
 #define BCL_DEFINE_RO_PARAM(_attr, _name, _attr_gp, _index) \
-	sysfs_attr_init(&_attr.attr); \
 	_attr.attr.name = __stringify(_name); \
 	_attr.attr.mode = 0444; \
 	_attr.show = _name##_show; \
@@ -228,7 +227,8 @@ int msm_bcl_enable(void)
 	int ret = 0, i = 0;
 	struct bcl_param_data *param_data = NULL;
 
-	if (!bcl[i]) {
+	if (!bcl[i] || !bcl[BCL_PARAM_VOLTAGE]->thresh
+		|| !bcl[BCL_PARAM_CURRENT]->thresh) {
 		pr_err("BCL not initialized\n");
 		return -EINVAL;
 	}

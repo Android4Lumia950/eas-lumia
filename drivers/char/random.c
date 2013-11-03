@@ -284,6 +284,8 @@
 
 #define DEBUG_RANDOM_BOOT 0
 
+#define DEBUG_RANDOM_BOOT 0
+
 #define LONGS(x) (((x) + sizeof(unsigned long) - 1)/sizeof(unsigned long))
 
 /*

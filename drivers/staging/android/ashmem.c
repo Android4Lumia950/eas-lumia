@@ -253,7 +253,7 @@ static loff_t ashmem_llseek(struct file *file, loff_t offset, int origin)
 	if (!asma->file)
 		return -EBADF;
 
-	ret = asma->file->f_op->llseek(asma->file, offset, origin);
+	ret = vfs_llseek(asma->file, offset, origin);
 	if (ret < 0)
 		return ret;
 

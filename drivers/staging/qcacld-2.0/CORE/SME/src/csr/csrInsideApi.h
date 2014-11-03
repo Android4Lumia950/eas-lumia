@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2017 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -62,16 +62,13 @@
 #define CSR_MIN_REST_TIME_CONC                  50
 
 #define CSR_IDLE_TIME_CONC                      25
-
-#define CSR_NUM_STA_CHAN_COMBINED_CONC      3
-#define CSR_NUM_P2P_CHAN_COMBINED_CONC      1
 #endif
 
 #define CSR_MAX_NUM_SUPPORTED_CHANNELS 55
 
 #define CSR_MAX_2_4_GHZ_SUPPORTED_CHANNELS 14
 
-#define CSR_MAX_BSS_SUPPORT            512
+#define CSR_MAX_BSS_SUPPORT            250
 #define SYSTEM_TIME_MSEC_TO_USEC      1000
 
 /* This number minus 1 means the number of times a channel is scanned
@@ -157,8 +154,7 @@ typedef enum
     eCsrSilentlyStopRoamingSaveState,
     eCsrJoinWdsFailure,
     eCsrJoinFailureDueToConcurrency,
-    eCsrStopBssSuccess,
-    eCsrStopBssFailure,
+
 }eCsrRoamCompleteResult;
 
 typedef struct tagScanReqParam
@@ -655,11 +651,6 @@ tANI_BOOLEAN csrIsProfileWapi( tCsrRoamProfile *pProfile );
 #define WLAN_SECURITY_EVENT_PMKID_CANDIDATE_FOUND  7
 #define WLAN_SECURITY_EVENT_PMKID_UPDATE    8
 #define WLAN_SECURITY_EVENT_MIC_ERROR       9
-#define WLAN_SECURITY_EVENT_SET_UNICAST_REQ  10
-#define WLAN_SECURITY_EVENT_SET_UNICAST_RSP  11
-#define WLAN_SECURITY_EVENT_SET_BCAST_REQ    12
-#define WLAN_SECURITY_EVENT_SET_BCAST_RSP    13
-
 
 #define AUTH_OPEN       0
 #define AUTH_SHARED     1
@@ -1085,19 +1076,3 @@ csr_get_bssdescr_from_scan_handle(tScanResultHandle result_handle,
                                   tSirBssDescription *bss_descr);
 eHalStatus csr_prepare_disconnect_command(tpAniSirGlobal mac,
                                     tANI_U32 session_id, tSmeCmd **sme_cmd);
-
-eHalStatus csrRoamPrepareBssConfigFromProfile(tpAniSirGlobal mac_ctx,
-                tCsrRoamProfile *profile, tBssConfigParam *bss_cfg,
-                tSirBssDescription *bss_desc);
-void csrRoamPrepareBssParams(tpAniSirGlobal mac_ctx, uint32_t session_id,
-                tCsrRoamProfile *profile, tSirBssDescription *bss_desc,
-                tBssConfigParam *bss_cfg, tDot11fBeaconIEs *ies);
-
-void csr_remove_bssid_from_scan_list(tpAniSirGlobal mac_ctx,
-			tSirMacAddr bssid);
-
-eHalStatus csrRoamSetBssConfigCfg(tpAniSirGlobal mac_ctx, uint32_t session_id,
-                tCsrRoamProfile *profile, tSirBssDescription *bss_desc,
-                tBssConfigParam *bss_cfg, tDot11fBeaconIEs *ies,
-                tANI_BOOLEAN reset_country);
-

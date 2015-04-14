@@ -1173,6 +1173,9 @@ __rmqueue_fallback(struct zone *zone, int order, int start_migratetype)
 			try_to_steal_freepages(zone, page, start_migratetype,
 								migratetype, order);
 
+			try_to_steal_freepages(zone, page, start_migratetype,
+								migratetype, order);
+
 			/* Remove the page from the freelists */
 			list_del(&page->lru);
 			rmv_page_order(page);

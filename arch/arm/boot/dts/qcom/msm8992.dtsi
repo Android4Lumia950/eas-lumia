@@ -1176,6 +1176,7 @@ energy-costs {
 		qcom,vbg-opt;
 
 		//qcom,ep-wakeirq;
+        qcom,clk-power-manage-en;
 
 		qcom,msi-gicm-addr = <0xf9006040>;
 		qcom,msi-gicm-base = <0x180>;

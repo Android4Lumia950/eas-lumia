@@ -304,12 +304,12 @@ energy-costs {
 					 490   533
 					 599   721
 					 708   917
-		       		 762  1058
-		       		 817  1203
-					 871  1410
-		       		 926  1612
-		       		 975  1868
-		       		1024  2126
+		       		 762  1250
+		       		 817  1400
+					 871  1600
+		       		 926  1800
+		       		 975  2000
+		       		1024  2400
 				>;
 				idle-cost-data = <
 			  		65 60 28 21
@@ -2764,28 +2764,22 @@ energy-costs {
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <7>;
-		qcom,poll-ms = <250>;
-		qcom,limit-temp = <60>;
-		qcom,temp-hysteresis = <10>;
+		qcom,poll-ms = <1000>;
+		qcom,limit-temp = <55>;
+		qcom,temp-hysteresis = <5>;
 		qcom,therm-reset-temp = <115>;
 		qcom,disable-ocr;
 		qcom,disable-psm;
 		qcom,disable-gfx-phase-ctrl;
 		qcom,disable-cx-phase-ctrl;
-		qcom,freq-step = <2>;
-		qcom,freq-control-mask = <0x3f>;
-		qcom,core-limit-temp = <80>;
+		qcom,freq-step = <1>;
+		qcom,core-limit-temp = <65>;
 		qcom,core-temp-hysteresis = <10>;
-		qcom,core-control-mask = <0x3e>;
-		qcom,hotplug-temp = <105>;
-		qcom,hotplug-temp-hysteresis = <40>;
-		qcom,cpu-sensors = "tsens_tz_sensor7", "tsens_tz_sensor7",
-				   "tsens_tz_sensor9", "tsens_tz_sensor10",
-				   "tsens_tz_sensor13", "tsens_tz_sensor14";
-		qcom,freq-mitigation-temp = <100>;
-		qcom,freq-mitigation-temp-hysteresis = <20>;
-		qcom,freq-mitigation-value = <768000>;
-		qcom,freq-mitigation-control-mask = <0x30>;
+		qcom,core-control-list = <&CPU2 &CPU3 &CPU4 &CPU5>;
+		qcom,hotplug-temp = <100>;
+		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,cpu-sensors = "tsens_tz_sensor7", "tsens_tz_sensor7", "tsens_tz_sensor9", "tsens_tz_sensor10", "tsens_tz_sensor13", "tsens_tz_sensor14";
+		qcom,disable-freq-mitigation;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
 		qcom,vdd-restriction-temp = <5>;

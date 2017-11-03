@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,17 +17,22 @@
 /* return true if s1 is a prefix of s2 */
 #define STR_PRFX_EQUAL(s1, s2) !strncmp(s1, s2, strlen(s1))
 
-#define UFS_ANY_VENDOR -1
+#define UFS_ANY_VENDOR 0xffff
 #define UFS_ANY_MODEL  "ANY_MODEL"
 
 #define MAX_MODEL_LEN 16
 
 #define UFS_VENDOR_TOSHIBA     0x198
 #define UFS_VENDOR_SAMSUNG     0x1CE
+#define UFS_VENDOR_HYNIX       0x1AD
 
 /* UFS TOSHIBA MODELS */
 #define UFS_MODEL_TOSHIBA_32GB "THGLF2G8D4KBADR"
 #define UFS_MODEL_TOSHIBA_64GB "THGLF2G9D8KBADG"
+
+/* Android Bug: 112733446 -- causing device freezing */
+#define UFS_MODEL_SAMSUNG_QDEPTH_ERR	"KLUDG8J1CB-B0B1"
+#define UFS_MODEL_SAMSUNG_MAX_QDEPTH	16
 
 /**
  * ufs_card_info - ufs device details
@@ -106,6 +111,39 @@ struct ufs_card_fix {
  */
 #define UFS_DEVICE_QUIRK_NO_LINK_OFF	(1 << 3)
 
+/*
+ * Few Toshiba UFS device models advertise RX_MIN_ACTIVATETIME_CAPABILITY as
+ * 600us which may not be enough for reliable hibern8 exit hardware sequence
+ * from UFS device.
+ * To workaround this issue, host should set its PA_TACTIVATE time to 1ms even
+ * if device advertises RX_MIN_ACTIVATETIME_CAPABILITY less than 1ms.
+ */
+#define UFS_DEVICE_QUIRK_PA_TACTIVATE	(1 << 4)
+
+/*
+ * Some UFS memory devices may have really low read/write throughput in
+ * FAST AUTO mode, enable this quirk to make sure that FAST AUTO mode is
+ * never enabled for such devices.
+ */
+#define UFS_DEVICE_NO_FASTAUTO		(1 << 5)
+
+/*
+ * Some UFS devices require host PA_TACTIVATE to be lower than device
+ * PA_TACTIVATE, enabling this quirk ensure this.
+ */
+#define UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE	(1 << 6)
+
+/*
+ * The max. value PA_SaveConfigTime is 250 (10us) but this is not enough for
+ * some vendors.
+ * Gear switch from PWM to HS may fail even with this max. PA_SaveConfigTime.
+ * Gear switch can be issued by host controller as an error recovery and any
+ * software delay will not help on this case so we need to increase
+ * PA_SaveConfigTime to >32us as per vendor recommendation.
+ */
+#define UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME	(1 << 7)
+
 struct ufs_hba;
 void ufs_advertise_fixup_device(struct ufs_hba *hba);
+int ufs_fix_qdepth_device(struct ufs_hba *hba, struct scsi_device *sdev);
 #endif /* UFS_QUIRKS_H_ */

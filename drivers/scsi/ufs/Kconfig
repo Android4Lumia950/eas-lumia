@@ -72,8 +72,9 @@ config SCSI_UFSHCD_PLATFORM
 	  If unsure, say N.
 
 config SCSI_UFS_QCOM
-	bool "QCOM specific hooks to UFS controller platform driver"
+	tristate "QCOM specific hooks to UFS controller platform driver"
 	depends on SCSI_UFSHCD_PLATFORM && ARCH_MSM
+	select PHY_QCOM_UFS
 	help
 	  This selects the QCOM specific additions to UFSHCD platform driver.
 	  UFS host on QCOM needs some vendor specific configuration before
@@ -99,8 +100,21 @@ config SCSI_UFS_QCOM_ICE
 config SCSI_UFS_TEST
 	tristate "Universal Flash Storage host controller driver unit-tests"
 	depends on SCSI_UFSHCD && IOSCHED_TEST
+	default m
 	---help---
 	This adds UFS Host controller unit-test framework.
 	The UFS unit-tests register as a block device test utility to
 	the test-iosched and will be initiated when the test-iosched will
 	be chosen to be the active I/O scheduler.
+
+config SCSI_UFSHCD_CMD_LOGGING
+	bool "Universal Flash Storage host controller driver layer command logging support"
+	depends on SCSI_UFSHCD
+	help
+	  This selects the UFS host controller driver layer command logging.
+	  UFS host controller driver layer command logging records all the
+	  command information sent from UFS host controller for debugging
+	  purpose.
+
+	  Select this if you want above mentioned debug information captured.
+	  If unsure, say N.

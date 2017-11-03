@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,7 @@
 
 #include <scsi/scsi_cmnd.h>
 
-#include <linux/scsi/ufs/ufs-qcom.h>
+#include "ufs-qcom.h"
 
 /*
  * UFS host controller ICE registers. There are n [0..31]
@@ -27,21 +27,22 @@ enum {
 	REG_UFS_QCOM_ICE_CFG		         = 0x2200,
 	REG_UFS_QCOM_ICE_CTRL_INFO_1_n           = 0x2204,
 	REG_UFS_QCOM_ICE_CTRL_INFO_2_n           = 0x2208,
+	REG_UFS_QCOM_ICE_CTRL_INFO_3_n           = 0x220C,
 };
 #define NUM_QCOM_ICE_CTRL_INFO_n_REGS		32
 
-/* UFS QCOM ICE CTRL Info 2 register offset */
+/* UFS QCOM ICE CTRL Info register offset */
 enum {
-	OFFSET_UFS_QCOM_ICE_CTRL_INFO_2_BYPASS     = 0,
-	OFFSET_UFS_QCOM_ICE_CTRL_INFO_2_KEY_INDEX  = 0x1,
-	OFFSET_UFS_QCOM_ICE_CTRL_INFO_2_CDU        = 0x6,
+	OFFSET_UFS_QCOM_ICE_CTRL_INFO_BYPASS     = 0,
+	OFFSET_UFS_QCOM_ICE_CTRL_INFO_KEY_INDEX  = 0x1,
+	OFFSET_UFS_QCOM_ICE_CTRL_INFO_CDU        = 0x6,
 };
 
-/* UFS QCOM ICE CTRL Info 2 register masks */
+/* UFS QCOM ICE CTRL Info register masks */
 enum {
-	MASK_UFS_QCOM_ICE_CTRL_INFO_2_BYPASS     = 0x1,
-	MASK_UFS_QCOM_ICE_CTRL_INFO_2_KEY_INDEX  = 0x1F,
-	MASK_UFS_QCOM_ICE_CTRL_INFO_2_CDU        = 0x8,
+	MASK_UFS_QCOM_ICE_CTRL_INFO_BYPASS     = 0x1,
+	MASK_UFS_QCOM_ICE_CTRL_INFO_KEY_INDEX  = 0x1F,
+	MASK_UFS_QCOM_ICE_CTRL_INFO_CDU        = 0x8,
 };
 
 /* UFS QCOM ICE encryption/decryption bypass state */
@@ -71,7 +72,12 @@ enum {
 #ifdef CONFIG_SCSI_UFS_QCOM_ICE
 int ufs_qcom_ice_get_dev(struct ufs_qcom_host *qcom_host);
 int ufs_qcom_ice_init(struct ufs_qcom_host *qcom_host);
-int ufs_qcom_ice_cfg(struct ufs_qcom_host *qcom_host, struct scsi_cmnd *cmd);
+int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
+			   struct scsi_cmnd *cmd, u8 *cc_index, bool *enable);
+int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
+		struct scsi_cmnd *cmd);
+int ufs_qcom_ice_cfg_end(struct ufs_qcom_host *qcom_host,
+		struct request *req);
 int ufs_qcom_ice_reset(struct ufs_qcom_host *qcom_host);
 int ufs_qcom_ice_resume(struct ufs_qcom_host *qcom_host);
 int ufs_qcom_ice_suspend(struct ufs_qcom_host *qcom_host);
@@ -90,8 +96,13 @@ inline int ufs_qcom_ice_init(struct ufs_qcom_host *qcom_host)
 {
 	return 0;
 }
-inline int ufs_qcom_ice_cfg(struct ufs_qcom_host *qcom_host,
-			    struct scsi_cmnd *cmd)
+inline int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
+					struct scsi_cmnd *cmd)
+{
+	return 0;
+}
+inline int ufs_qcom_ice_cfg_end(struct ufs_qcom_host *qcom_host,
+					struct request *req)
 {
 	return 0;
 }

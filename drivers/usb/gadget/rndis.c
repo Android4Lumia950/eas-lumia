@@ -930,6 +930,7 @@ int rndis_register(void (*resp_avail)(void *v), void *v)
 void rndis_deregister(int configNr)
 {
 	pr_debug("%s:\n", __func__);
+	BUG_ON(configNr < 0);
 
 	if (configNr >= RNDIS_MAX_CONFIGS) return;
 	rndis_per_dev_params[configNr].used = 0;

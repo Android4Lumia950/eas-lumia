@@ -1148,4 +1148,9 @@ struct ol_fw_data {
 	uint32_t len;
 };
 
+struct ol_fw_data {
+	void *data;
+	uint32_t len;
+};
+
 #endif /* _OL_TXRX_TYPES__H_ */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2016-2018 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -562,6 +562,9 @@ __limProcessOperatingModeActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo
     }
     pSta = dphLookupHashEntry(pMac, pHdr->sa, &aid, &psessionEntry->dph.dphHashTable);
 
+    if (pSta == NULL)
+        goto end;
+
     operMode = pSta->vhtSupportedChannelWidthSet ? eHT_CHANNEL_WIDTH_80MHZ : pSta->htSupportedChannelWidthSet ? eHT_CHANNEL_WIDTH_40MHZ: eHT_CHANNEL_WIDTH_20MHZ;
 
     if ((operMode == eHT_CHANNEL_WIDTH_80MHZ) &&
@@ -622,7 +625,7 @@ __limProcessOperatingModeActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo
         limSetNssChange( pMac, psessionEntry, pSta->vhtSupportedRxNss,
                          pSta->staIndex, pHdr->sa);
     }
-
+end:
     vos_mem_free(pOperatingModeframe);
     return;
 }
@@ -678,7 +681,7 @@ __limProcessGidManagementActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo
     }
     pSta = dphLookupHashEntry(pMac, pHdr->sa, &aid, &psessionEntry->dph.dphHashTable);
 
-    {
+    if (pSta != NULL) {
         limLog(pMac, LOGE,
             FL(" received Gid Management Action Frame , staIdx = %d"),
                pSta->staIndex);
@@ -2183,10 +2186,17 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
 {
     tANI_U8 *pBody = WDA_GET_RX_MPDU_DATA(pRxPacketInfo);
     tpSirMacActionFrameHdr pActionHdr = (tpSirMacActionFrameHdr) pBody;
-    tANI_U32         frameLen;
-#ifdef WLAN_FEATURE_11W
+    tANI_U32         frameLen = WDA_GET_RX_PAYLOAD_LEN(pRxPacketInfo);
     tpSirMacMgmtHdr pHdr = WDA_GET_RX_MAC_HEADER(pRxPacketInfo);
 
+    if (frameLen < sizeof(*pActionHdr)) {
+        limLog(pMac, LOGE,
+               FL("frame_len %d less than Action Frame Hdr size"),
+               frameLen);
+        return;
+    }
+
+#ifdef WLAN_FEATURE_11W
     if (lim_is_robust_mgmt_action_frame(pActionHdr->category) &&
         limDropUnprotectedActionFrame(pMac, psessionEntry, pHdr,
                                           pActionHdr->category)) {
@@ -2196,7 +2206,6 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
         return;
     }
 #endif
-    frameLen = WDA_GET_RX_PAYLOAD_LEN(pRxPacketInfo);
 
     switch (pActionHdr->category)
     {
@@ -2223,7 +2232,9 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
                                    (tANI_U8 *) pRxPacketInfo, psessionEntry);
                     break;
                     default:
-                        PELOGE(limLog(pMac, LOGE, FL("Qos action %d not handled"), pActionHdr->actionID);)
+                        limLog(pMac, LOG1,
+                          FL("Qos action %d not handled"),
+                          pActionHdr->actionID);
                         break;
                 }
                 break ;
@@ -2242,7 +2253,9 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
                     }
                     break;
                 default:
-                    PELOGE(limLog(pMac, LOGE, FL("Spectrum mgmt action id %d not handled"), pActionHdr->actionID);)
+                    limLog(pMac, LOG1,
+                      FL("Spectrum mgmt action id %d not handled"),
+                      pActionHdr->actionID);
                     break;
             }
             break;
@@ -2274,7 +2287,9 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
                     break;
 
                 default:
-                    PELOGE(limLog(pMac, LOGE, FL("WME action %d not handled"), pActionHdr->actionID);)
+                    limLog(pMac, LOG1,
+                      FL("WME action %d not handled"),
+                      pActionHdr->actionID);
                     break;
             }
             break;
@@ -2308,7 +2323,9 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
                 __limProcessSMPowerSaveUpdate(pMac, (tANI_U8 *) pRxPacketInfo,psessionEntry);
             break;
         default:
-            PELOGE(limLog(pMac, LOGE, FL("Action ID %d not handled in HT Action category"), pActionHdr->actionID);)
+            limLog(pMac, LOG1,
+              FL("Action ID %d not handled in HT Action category"),
+              pActionHdr->actionID);
             break;
         }
         break;
@@ -2325,9 +2342,8 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
             case SIR_MAC_WNM_NOTIF_REQUEST:
             case SIR_MAC_WNM_NOTIF_RESPONSE:
             {
-               tpSirMacMgmtHdr     pHdr;
                tANI_S8 rssi = WDA_GET_RX_RSSI_NORMALIZED(pRxPacketInfo);
-               pHdr = WDA_GET_RX_MAC_HEADER(pRxPacketInfo);
+
                /* Forward to the SME to HDD to wpa_supplicant */
                limSendSmeMgmtFrameInd(pMac, pHdr->fc.subType, (tANI_U8*)pHdr,
                        frameLen + sizeof(tSirMacMgmtHdr),
@@ -2337,9 +2353,9 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
                break;
             }
             default:
-            PELOGE(limLog(pMac, LOGE,
+            limLog(pMac, LOG1,
                  FL("Action ID %d not handled in WNM Action category"),
-                                                pActionHdr->actionID);)
+                                                pActionHdr->actionID);
             break;
         }
         break;
@@ -2359,7 +2375,9 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
                     __limProcessNeighborReport( pMac, (tANI_U8*) pRxPacketInfo, psessionEntry );
                     break;
                 default:
-                    PELOGE( limLog( pMac, LOGE, FL("Action ID %d not handled in RRM"), pActionHdr->actionID);)
+                    limLog(pMac, LOG1,
+                      FL("Action ID %d not handled in RRM"),
+                      pActionHdr->actionID);
                     break;
 
             }
@@ -2367,7 +2385,8 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
         else
         {
             // Else we will just ignore the RRM messages.
-            PELOGE( limLog( pMac, LOGE, FL("RRM Action frame ignored as RRM is disabled in cfg"));)
+            limLog(pMac, LOG1,
+              FL("RRM Action frame ignored as RRM is disabled in cfg"));
         }
         break;
 #endif
@@ -2375,13 +2394,13 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
         case SIR_MAC_ACTION_VENDOR_SPECIFIC_CATEGORY:
             {
               tpSirMacVendorSpecificFrameHdr pVendorSpecific = (tpSirMacVendorSpecificFrameHdr) pActionHdr;
-              tpSirMacMgmtHdr     pHdr;
-              tANI_U32            frameLen;
               tANI_U8 Oui[] = { 0x00, 0x00, 0xf0 };
 
-              pHdr = WDA_GET_RX_MAC_HEADER(pRxPacketInfo);
-              frameLen = WDA_GET_RX_PAYLOAD_LEN(pRxPacketInfo);
-
+              if (frameLen < sizeof(*pVendorSpecific)) {
+                  limLog(pMac, LOGE, FL("frame len %d less than Vendor Specific Hdr len"),
+                         frameLen);
+                         break;
+              }
               //Check if it is a vendor specific action frame.
               if (LIM_IS_STA_ROLE(psessionEntry) &&
                   (VOS_TRUE == vos_mem_compare(psessionEntry->selfMacAddr,
@@ -2398,11 +2417,12 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
                     WDA_GET_RX_CH( pRxPacketInfo ), psessionEntry, 0);
               }
               else {
-                 limLog( pMac, LOGE, FL("Dropping the vendor specific action frame because of( "
+                 limLog(pMac, LOG1, FL("Dropping the vendor specific action frame because of( "
                                         "WES Mode not enabled (WESMODE = %d) or OUI mismatch (%02x %02x %02x) or "
                                         "not received with SelfSta Mac address) system role = %d"),
                                         IS_WES_MODE_ENABLED(pMac),
-                                        pVendorSpecific->Oui[0], pVendorSpecific->Oui[1],
+                                        pVendorSpecific->Oui[0],
+                                        pVendorSpecific->Oui[1],
                                         pVendorSpecific->Oui[2],
                                         GET_LIM_SYSTEM_ROLE(psessionEntry));
               }
@@ -2415,12 +2435,13 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
         case SIR_MAC_ACTION_VENDOR_SPECIFIC:
             {
               tpSirMacVendorSpecificPublicActionFrameHdr pPubAction = (tpSirMacVendorSpecificPublicActionFrameHdr) pActionHdr;
-              tpSirMacMgmtHdr     pHdr;
-              tANI_U32            frameLen;
               tANI_U8 P2POui[] = { 0x50, 0x6F, 0x9A, 0x09 };
 
-              pHdr = WDA_GET_RX_MAC_HEADER(pRxPacketInfo);
-              frameLen = WDA_GET_RX_PAYLOAD_LEN(pRxPacketInfo);
+              if (frameLen < sizeof(*pPubAction)) {
+                limLog(pMac, LOG1,
+                  FL("Received action frame of invalid len %d"), frameLen);
+                break;
+              }
 
               //Check if it is a P2P public action frame.
               if (vos_mem_compare(pPubAction->Oui, P2POui, 4))
@@ -2434,20 +2455,16 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
               }
               else
               {
-                 limLog( pMac, LOGE, FL("Unhandled public action frame (Vendor specific). OUI %x %x %x %x"),
-                      pPubAction->Oui[0], pPubAction->Oui[1], pPubAction->Oui[2], pPubAction->Oui[3] );
+                 limLog(pMac, LOG1,
+                      FL("Unhandled public action frame (Vendor specific). OUI %x %x %x %x"),
+                      pPubAction->Oui[0], pPubAction->Oui[1],
+                      pPubAction->Oui[2], pPubAction->Oui[3]);
               }
            }
             break;
 
          case SIR_MAC_ACTION_2040_BSS_COEXISTENCE:
            {
-              tpSirMacMgmtHdr     pHdr;
-              tANI_U32            frameLen;
-
-              pHdr = WDA_GET_RX_MAC_HEADER(pRxPacketInfo);
-              frameLen = WDA_GET_RX_PAYLOAD_LEN(pRxPacketInfo);
-
               limSendSmeMgmtFrameInd(pMac, pHdr->fc.subType,
                     (tANI_U8*)pHdr, frameLen + sizeof(tSirMacMgmtHdr),
                     psessionEntry->smeSessionId,
@@ -2457,12 +2474,8 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
 #ifdef FEATURE_WLAN_TDLS
            case SIR_MAC_TDLS_DIS_RSP:
            {
-               tpSirMacMgmtHdr     pHdr;
-               tANI_U32            frameLen;
                tANI_S8             rssi;
 
-               pHdr = WDA_GET_RX_MAC_HEADER(pRxPacketInfo);
-               frameLen = WDA_GET_RX_PAYLOAD_LEN(pRxPacketInfo);
                rssi = WDA_GET_RX_RSSI_NORMALIZED(pRxPacketInfo);
 
                VOS_TRACE(VOS_MODULE_ID_PE, VOS_TRACE_LEVEL_INFO,
@@ -2480,7 +2493,9 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
                                 pRxPacketInfo, psessionEntry);
             break;
         default:
-            PELOGE(limLog(pMac, LOGE, FL("Unhandled public action frame -- %x "), pActionHdr->actionID);)
+            limLog(pMac, LOG1,
+              FL("Unhandled public action frame -- %x "),
+              pActionHdr->actionID);
             break;
         }
         break;
@@ -2532,10 +2547,8 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
     case SIR_MAC_ACTION_FST:
     {
         tpSirMacMgmtHdr     pHdr;
-        tANI_U32            frameLen;
 
         pHdr = WDA_GET_RX_MAC_HEADER(pRxPacketInfo);
-        frameLen = WDA_GET_RX_PAYLOAD_LEN(pRxPacketInfo);
 
         limLog(pMac, LOG1, FL("Received FST MGMT action frame"));
         /* Forward to the SME to HDD */
@@ -2547,7 +2560,9 @@ limProcessActionFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,tpPESession ps
         break;
     }
     default:
-       PELOGE(limLog(pMac, LOGE, FL("Action category %d not handled"), pActionHdr->category);)
+       limLog(pMac, LOGE,
+         FL("Action category %d not handled"),
+         pActionHdr->category);
        break;
     }
 }
@@ -2577,8 +2592,15 @@ limProcessActionFrameNoSession(tpAniSirGlobal pMac, tANI_U8 *pBd)
 {
    tANI_U8 *pBody = WDA_GET_RX_MPDU_DATA(pBd);
    tpSirMacVendorSpecificPublicActionFrameHdr pActionHdr = (tpSirMacVendorSpecificPublicActionFrameHdr) pBody;
+   tANI_U32 frameLen = WDA_GET_RX_PAYLOAD_LEN(pBd);
 
    limLog( pMac, LOG1, "Received a Action frame -- no session");
+
+   if (frameLen < sizeof(*pActionHdr)) {
+     limLog(pMac, LOGE,
+       FL("Received action frame of invalid len %d"), frameLen);
+     return;
+   }
 
    switch ( pActionHdr->category )
    {
@@ -2587,11 +2609,9 @@ limProcessActionFrameNoSession(tpAniSirGlobal pMac, tANI_U8 *pBd)
             case SIR_MAC_ACTION_VENDOR_SPECIFIC:
               {
                 tpSirMacMgmtHdr     pHdr;
-                tANI_U32            frameLen;
                 tANI_U8 P2POui[] = { 0x50, 0x6F, 0x9A, 0x09 };
 
                 pHdr = WDA_GET_RX_MAC_HEADER(pBd);
-                frameLen = WDA_GET_RX_PAYLOAD_LEN(pBd);
 
                 //Check if it is a P2P public action frame.
                 if (vos_mem_compare(pActionHdr->Oui, P2POui, 4))
@@ -2600,22 +2620,39 @@ limProcessActionFrameNoSession(tpAniSirGlobal pMac, tANI_U8 *pBd)
                   // type is ACTION
                   limSendSmeMgmtFrameInd(pMac, pHdr->fc.subType,
                       (tANI_U8*)pHdr, frameLen + sizeof(tSirMacMgmtHdr), 0,
-                      WDA_GET_RX_CH( pBd ), NULL, 0);
+                      WDA_GET_RX_CH( pBd ), NULL, WDA_GET_RX_RSSI_RAW(pBd));
                 }
                 else
                 {
-                  limLog( pMac, LOGE, FL("Unhandled public action frame (Vendor specific). OUI %x %x %x %x"),
-                      pActionHdr->Oui[0], pActionHdr->Oui[1], pActionHdr->Oui[2], pActionHdr->Oui[3] );
+                  limLog(pMac, LOG1,
+                    FL("Unhandled public action frame (Vendor specific). OUI %x %x %x %x"),
+                      pActionHdr->Oui[0], pActionHdr->Oui[1],
+                      pActionHdr->Oui[2], pActionHdr->Oui[3]);
                 }
               }
                break;
             default:
-               PELOGE(limLog(pMac, LOGE, FL("Unhandled public action frame -- %x "), pActionHdr->actionID);)
-                  break;
+               limLog(pMac, LOG1,
+                 FL("Unhandled public action frame -- %x "),
+                 pActionHdr->actionID);
+               break;
          }
          break;
+      /* Handle vendor specific action */
+      case SIR_MAC_ACTION_VENDOR_SPECIFIC_CATEGORY:
+      {
+          tpSirMacMgmtHdr     header;
+
+          header = WDA_GET_RX_MAC_HEADER(pBd);
+          limSendSmeMgmtFrameInd(pMac, header->fc.subType,
+              (uint8_t*)header, frameLen + sizeof(tSirMacMgmtHdr), 0,
+              WDA_GET_RX_CH(pBd), NULL, WDA_GET_RX_RSSI_RAW(pBd));
+          break;
+      }
       default:
-         PELOGE(limLog(pMac, LOG1, FL("Unhandled action frame without session -- %x "), pActionHdr->category);)
+         limLog(pMac, LOG1,
+             FL("Unhandled action frame without session -- %x "),
+             pActionHdr->category);
             break;
 
    }

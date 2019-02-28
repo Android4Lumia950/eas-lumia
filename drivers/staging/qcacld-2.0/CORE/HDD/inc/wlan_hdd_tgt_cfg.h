@@ -105,7 +105,16 @@ struct hdd_tgt_cfg {
         v_U8_t lpss_support;
 #endif
         uint8_t ap_arpns_support;
-	uint32_t fine_time_measurement_cap;
+#ifdef FEATURE_GREEN_AP
+        bool egap_support;
+#endif
+        uint32_t fine_time_measurement_cap;
+        bool bpf_enabled;
+        uint16_t wmi_max_len;
+#ifdef WLAN_FEATURE_NAN_DATAPATH
+        bool nan_datapath_enabled;
+#endif
+        uint8_t max_mc_addr_list;
 };
 
 struct hdd_dfs_radar_ind {

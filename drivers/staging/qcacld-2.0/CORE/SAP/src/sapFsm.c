@@ -345,6 +345,22 @@ tSapChanMatrixInfo ht80_chan[] =
     ,{144, SAP_TX_LEAKAGE_MIN}
 #endif
 }},
+
+#ifdef FEATURE_WLAN_CH144
+ {144,
+   {{36, 695},            {40, 695 },
+    {44, 684},            {48, 684 },
+    {52, 664},            {56, 664 },
+    {60, 658},            {64, 658 },
+    {100, 601},{104, 601 },
+    {108, 545},{112, 545 },
+    {116, SAP_TX_LEAKAGE_AUTO_MIN}, {120, SAP_TX_LEAKAGE_AUTO_MIN},
+    {124, SAP_TX_LEAKAGE_AUTO_MIN}, {128, SAP_TX_LEAKAGE_AUTO_MIN},
+    {132, 262},{136, 262},
+    {140, SAP_TX_LEAKAGE_MIN},
+    {144, SAP_TX_LEAKAGE_MIN}
+}},
+#endif
 };
 
 /* channel tx leakage table - ht40 */
@@ -589,8 +605,23 @@ tSapChanMatrixInfo ht40_chan[] =
     ,{144, SAP_TX_LEAKAGE_MIN}
 #endif
 }},
-};
 
+#ifdef FEATURE_WLAN_CH144
+ {144,
+   {{36, 695},            {40, 695 },
+    {44, 684},            {48, 684 },
+    {52, 664},            {56, 664 },
+    {60, 658},            {64, 658 },
+    {100, 601},{104, 601 },
+    {108, 545},{112, 545 },
+    {116, SAP_TX_LEAKAGE_AUTO_MIN}, {120, SAP_TX_LEAKAGE_AUTO_MIN},
+    {124, SAP_TX_LEAKAGE_AUTO_MIN}, {128, SAP_TX_LEAKAGE_AUTO_MIN},
+    {132, 262},{136, 262},
+    {140, SAP_TX_LEAKAGE_MIN},
+    {144, SAP_TX_LEAKAGE_MIN}
+}},
+#endif
+};
 
 /* channel tx leakage table - ht20 */
 tSapChanMatrixInfo ht20_chan[] =
@@ -834,6 +865,22 @@ tSapChanMatrixInfo ht20_chan[] =
     ,{144, SAP_TX_LEAKAGE_MIN}
 #endif
 }},
+
+#ifdef FEATURE_WLAN_CH144
+ {144,
+   {{36, 679},            {40, 673},
+    {44, 667},            {48, 656},
+    {52, 634},            {56, 663},
+    {60, 662},            {64, 660},
+    {100, SAP_TX_LEAKAGE_MAX},{104, SAP_TX_LEAKAGE_MAX},
+    {108, SAP_TX_LEAKAGE_MAX},{112, 590},
+    {116, 573},           {120, 553},
+    {124, 533},{128, 513},
+    {132, 490},{136, SAP_TX_LEAKAGE_MIN},
+    {140, SAP_TX_LEAKAGE_MIN},
+    {144, SAP_TX_LEAKAGE_MIN}
+}},
+#endif
 };
 #endif //end of WLAN_ENABLE_CHNL_MATRIX_RESTRICTION
 
@@ -1114,7 +1161,6 @@ sapMarkChannelsLeakingIntoNOL(ptSapContext sapContext,
                                   dfs_nol_channel,
                                   pTempChannelList[j]);
                         pTempChannelList[j] = 0;
-                        break;
                     }
                     j++;
                     k++;
@@ -1900,7 +1946,7 @@ v_BOOL_t
 sapDfsIsChannelInNolList(ptSapContext sapContext, v_U8_t channelNumber,
         ePhyChanBondState chanBondState)
 {
-    int i, j;
+    int i = 0, j;
     v_U64_t timeElapsedSinceLastRadar,timeWhenRadarFound,currentTime = 0;
     v_U64_t max_jiffies;
     tHalHandle hHal = VOS_GET_HAL_CB(sapContext->pvosGCtx);
@@ -2891,6 +2937,13 @@ sapSignalHDDevent
                        FL("SAP event callback event = %s"),
                           "eSAP_REMAIN_CHAN_READY");
            sapApAppEvent.sapHddEventCode = eSAP_REMAIN_CHAN_READY;
+            break;
+       case eSAP_SEND_ACTION_CNF:
+            VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_INFO_HIGH,
+                       FL("SAP event callback event = %s"),
+                          "eSAP_SEND_ACTION_CNF");
+            sapApAppEvent.sapHddEventCode = eSAP_SEND_ACTION_CNF;
+            sapApAppEvent.sapevt.sapActionCnf.actionSendSuccess = (eSapStatus)context;
             break;
 
        case eSAP_DISCONNECT_ALL_P2P_CLIENT:

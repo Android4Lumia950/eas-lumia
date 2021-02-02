@@ -2814,7 +2814,6 @@ energy-costs {
 
 	qcom,bcl {
 		compatible = "qcom,bcl";
-		qcom,bcl-enable;
 		qcom,bcl-framework-interface;
 		/delete-property/ qcom,bcl-hotplug-list;
 		/delete-property/ qcom,bcl-soc-hotplug-list;

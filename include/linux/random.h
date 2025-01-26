@@ -67,10 +67,6 @@ static inline u32 prandom_u32_max(u32 ep_ro)
  *
  * Returns: pseudo-random number in interval [0, ep_ro)
  */
-static inline u32 prandom_u32_max(u32 ep_ro)
-{
-	return (u32)(((u64) prandom_u32() * ep_ro) >> 32);
-}
 
 /*
  * Handle minimum values for seeds

@@ -272,7 +272,7 @@
 			};
 		};
 
-		energy-costs {
+energy-costs {
 			CPU_COST_0: core-cost0 {
 				busy-cost-data = <
 					136     7
@@ -347,6 +347,7 @@
 			};
 		};
 	};
+
 
 	soc: soc { };
 

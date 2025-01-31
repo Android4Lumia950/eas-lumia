@@ -272,14 +272,17 @@ DECLARE_EVENT_CLASS(binder_buffer_class,
 		__field(int, debug_id)
 		__field(size_t, data_size)
 		__field(size_t, offsets_size)
+		__field(size_t, extra_buffers_size)
 	),
 	TP_fast_assign(
 		__entry->debug_id = buf->debug_id;
 		__entry->data_size = buf->data_size;
 		__entry->offsets_size = buf->offsets_size;
+		__entry->extra_buffers_size = buf->extra_buffers_size;
 	),
-	TP_printk("transaction=%d data_size=%zd offsets_size=%zd",
-		  __entry->debug_id, __entry->data_size, __entry->offsets_size)
+	TP_printk("transaction=%d data_size=%zd offsets_size=%zd extra_buffers_size=%zd",
+		  __entry->debug_id, __entry->data_size, __entry->offsets_size,
+		  __entry->extra_buffers_size)
 );
 
 DEFINE_EVENT(binder_buffer_class, binder_transaction_alloc_buf,
@@ -296,7 +299,7 @@ DEFINE_EVENT(binder_buffer_class, binder_transaction_failed_buffer_release,
 
 TRACE_EVENT(binder_update_page_range,
 	TP_PROTO(struct binder_alloc *alloc, bool allocate,
-		 void *start, void *end),
+		 void __user *start, void __user *end),
 	TP_ARGS(alloc, allocate, start, end),
 	TP_STRUCT__entry(
 		__field(int, proc)
@@ -314,6 +317,61 @@ TRACE_EVENT(binder_update_page_range,
 		  __entry->proc, __entry->allocate,
 		  __entry->offset, __entry->size)
 );
+
+DECLARE_EVENT_CLASS(binder_lru_page_class,
+	TP_PROTO(const struct binder_alloc *alloc, size_t page_index),
+	TP_ARGS(alloc, page_index),
+	TP_STRUCT__entry(
+		__field(int, proc)
+		__field(size_t, page_index)
+	),
+	TP_fast_assign(
+		__entry->proc = alloc->pid;
+		__entry->page_index = page_index;
+	),
+	TP_printk("proc=%d page_index=%zu",
+		  __entry->proc, __entry->page_index)
+);
+
+DEFINE_EVENT(binder_lru_page_class, binder_alloc_lru_start,
+	TP_PROTO(const struct binder_alloc *alloc, size_t page_index),
+	TP_ARGS(alloc, page_index));
+
+DEFINE_EVENT(binder_lru_page_class, binder_alloc_lru_end,
+	TP_PROTO(const struct binder_alloc *alloc, size_t page_index),
+	TP_ARGS(alloc, page_index));
+
+DEFINE_EVENT(binder_lru_page_class, binder_free_lru_start,
+	TP_PROTO(const struct binder_alloc *alloc, size_t page_index),
+	TP_ARGS(alloc, page_index));
+
+DEFINE_EVENT(binder_lru_page_class, binder_free_lru_end,
+	TP_PROTO(const struct binder_alloc *alloc, size_t page_index),
+	TP_ARGS(alloc, page_index));
+
+DEFINE_EVENT(binder_lru_page_class, binder_alloc_page_start,
+	TP_PROTO(const struct binder_alloc *alloc, size_t page_index),
+	TP_ARGS(alloc, page_index));
+
+DEFINE_EVENT(binder_lru_page_class, binder_alloc_page_end,
+	TP_PROTO(const struct binder_alloc *alloc, size_t page_index),
+	TP_ARGS(alloc, page_index));
+
+DEFINE_EVENT(binder_lru_page_class, binder_unmap_user_start,
+	TP_PROTO(const struct binder_alloc *alloc, size_t page_index),
+	TP_ARGS(alloc, page_index));
+
+DEFINE_EVENT(binder_lru_page_class, binder_unmap_user_end,
+	TP_PROTO(const struct binder_alloc *alloc, size_t page_index),
+	TP_ARGS(alloc, page_index));
+
+DEFINE_EVENT(binder_lru_page_class, binder_unmap_kernel_start,
+	TP_PROTO(const struct binder_alloc *alloc, size_t page_index),
+	TP_ARGS(alloc, page_index));
+
+DEFINE_EVENT(binder_lru_page_class, binder_unmap_kernel_end,
+	TP_PROTO(const struct binder_alloc *alloc, size_t page_index),
+	TP_ARGS(alloc, page_index));
 
 TRACE_EVENT(binder_command,
 	TP_PROTO(uint32_t cmd),

@@ -15,7 +15,7 @@ function zipping() {
     cd $ANYKERNEL3_DIR
 
     # Define the final zip filename
-    FINAL_ZIP=Perf-kernel-$(date +%y%m%d-%H%M).zip
+    FINAL_ZIP=Harmony-kernel-$(date +%y%m%d-%H%M).zip
 
     # Zipping the contents of the AnyKernel3 directory
     zip -r9 $FINAL_ZIP ./*

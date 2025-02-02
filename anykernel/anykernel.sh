@@ -4,7 +4,7 @@
 ### AnyKernel setup
 # global properties
 properties() { '
-kernel.string=Perf-Kernel by ItzzJuliann&sonic011gamer @ xda-developers
+kernel.string=HarmonyKernel by ItzzJuliann&sonic011gamer @ xda-developers
 do.devicecheck=1
 do.modules=0
 do.systemless=1

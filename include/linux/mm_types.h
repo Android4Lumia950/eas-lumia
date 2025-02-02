@@ -1,6 +1,7 @@
 #ifndef _LINUX_MM_TYPES_H
 #define _LINUX_MM_TYPES_H
 
+#include <linux/async.h>
 #include <linux/auxvec.h>
 #include <linux/types.h>
 #include <linux/threads.h>
@@ -16,6 +17,8 @@
 #include <linux/page-flags-layout.h>
 #include <asm/page.h>
 #include <asm/mmu.h>
+#include <linux/workqueue.h>
+#include <linux/workqueue_internal.h>
 
 #ifndef AT_VECTOR_SIZE_ARCH
 #define AT_VECTOR_SIZE_ARCH 0
@@ -458,6 +461,8 @@ struct mm_struct {
 	bool tlb_flush_pending;
 #endif
 	struct uprobes_state uprobes_state;
+    struct work_struct async_put_work;
+
 };
 
 /* first nid will either be a valid NID or one of these values */
@@ -526,5 +531,11 @@ static inline const char __user *vma_get_anon_name(struct vm_area_struct *vma)
 
 	return vma->shared.anon_name;
 }
+
+struct vm_special_mapping
+{
+	const char *name;
+	struct page **pages;
+};
 
 #endif /* _LINUX_MM_TYPES_H */

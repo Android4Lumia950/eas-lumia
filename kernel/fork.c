@@ -72,6 +72,7 @@
 #include <linux/khugepaged.h>
 #include <linux/signalfd.h>
 #include <linux/uprobes.h>
+#include <linux/workqueue.h>
 #include <linux/aio.h>
 
 #include <asm/pgtable.h>
@@ -661,7 +662,7 @@ int mmput(struct mm_struct *mm)
 		__mmput(mm);
 		mm_freed = 1;
 	}
-	return mm_freed;
+    return mm_freed;
 }
 EXPORT_SYMBOL_GPL(mmput);
 

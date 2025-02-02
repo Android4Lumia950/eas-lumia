@@ -6,7 +6,7 @@ IMAGE=$KERNEL_DIR/arch/arm64/boot/Image.gz-dtb # Define the kernel image path
 
 function zipping() {
     # Delete old zip files that match the naming pattern
-    rm -f $KERNEL_DIR/Perf-kernel-*.zip
+    rm -f $KERNEL_DIR/Harmony-kernel-*.zip
 
     # Copying kernel essentials
     cp $IMAGE $ANYKERNEL3_DIR

@@ -3,7 +3,7 @@ name: Release build
 on:
   push:
       branches:
-            - twrp  # Change to your branch name
+            - lineage-18.11  # Change to your branch name
 
             env:
               CROSS_COMPILE_PREFIX: /aarch64-linux-android-4.9/bin/aarch64-linux-android-
@@ -20,7 +20,7 @@ on:
                                                   - name: Checkout kernel repo
                                                           uses: actions/checkout@v4
                                                                   with:
-                                                                            ref: twrp
+                                                                            ref: lineage-18.11
                                                                                       fetch-depth: 0
 
                                                                                             - name: Cache toolchain
@@ -77,7 +77,7 @@ on:
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 run: cp $DIR${IMAGE} $DIR${ANYKERNEL3_DIR}
 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       - name: Make name for zip
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              run: echo "FINAL_ZIP=Perf-kernel-$(date -u +"%Y%m%d-%H%M").zip" >> $GITHUB_ENV
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              run: echo "FINAL_ZIP=Harmony-kernel-$(date -u +"%Y%m%d-%H%M").zip" >> $GITHUB_ENV
 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     - name: Zip release
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             run: |

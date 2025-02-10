@@ -10,6 +10,7 @@
 #include "../../../include/media/as3638.h"
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
+#include <linux/leds.h>
 
 /* Registers */
 #define REG_DESIGN_INFO			0x00

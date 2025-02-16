@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,39 +24,7 @@
 #include "msm_bus_noc.h"
 #include "msm_bus_bimc.h"
 
-ssize_t vrail_show(struct device *dev, struct device_attribute *attr,
-			  char *buf)
-{
-	struct msm_bus_node_info_type *node_info = NULL;
-	struct msm_bus_node_device_type *bus_node = NULL;
-
-	bus_node = dev->platform_data;
-	if (!bus_node)
-		return -EINVAL;
-	node_info = bus_node->node_info;
-
-	return snprintf(buf, PAGE_SIZE, "%u", node_info->vrail_comp);
-}
-
-ssize_t vrail_store(struct device *dev, struct device_attribute *attr,
-			   const char *buf, size_t count)
-{
-	struct msm_bus_node_info_type *node_info = NULL;
-	struct msm_bus_node_device_type *bus_node = NULL;
-	int ret = 0;
-
-	bus_node = dev->platform_data;
-	if (!bus_node)
-		return -EINVAL;
-	node_info = bus_node->node_info;
-
-	ret = sscanf(buf, "%u", &node_info->vrail_comp);
-	if (ret != 1)
-		return -EINVAL;
-	return count;
-}
-
-DEVICE_ATTR(vrail, 0600, vrail_show, vrail_store);
+static int msm_bus_dev_init_qos(struct device *dev, void *data);
 
 ssize_t bw_show(struct device *dev, struct device_attribute *attr,
 			  char *buf)
@@ -82,26 +50,19 @@ ssize_t bw_show(struct device *dev, struct device_attribute *attr,
 			bus_node->lnode_list[i].lnode_ab[ACTIVE_CTX],
 			bus_node->lnode_list[i].lnode_ib[DUAL_CTX],
 			bus_node->lnode_list[i].lnode_ab[DUAL_CTX]);
-		trace_printk(
-		"[%d]:%s:Act_IB %llu Act_AB %llu Slp_IB %llu Slp_AB %llu\n",
-			i, bus_node->lnode_list[i].cl_name,
-			bus_node->lnode_list[i].lnode_ib[ACTIVE_CTX],
-			bus_node->lnode_list[i].lnode_ab[ACTIVE_CTX],
-			bus_node->lnode_list[i].lnode_ib[DUAL_CTX],
-			bus_node->lnode_list[i].lnode_ab[DUAL_CTX]);
 	}
 	off += scnprintf((buf + off), PAGE_SIZE,
-	"Max_Act_IB %llu Sum_Act_AB %llu\nMax_Slp_IB %llu Sum_Slp_AB %llu\n",
+	"Max_Act_IB %llu Sum_Act_AB %llu Act_Util_fact %d Act_Vrail_comp %d\n",
 		bus_node->node_bw[ACTIVE_CTX].max_ib,
 		bus_node->node_bw[ACTIVE_CTX].sum_ab,
+		bus_node->node_bw[ACTIVE_CTX].util_used,
+		bus_node->node_bw[ACTIVE_CTX].vrail_used);
+	off += scnprintf((buf + off), PAGE_SIZE,
+	"Max_Slp_IB %llu Sum_Slp_AB %llu Slp_Util_fact %d Slp_Vrail_comp %d\n",
 		bus_node->node_bw[DUAL_CTX].max_ib,
-		bus_node->node_bw[DUAL_CTX].sum_ab);
-	trace_printk(
-	"Max_Act_IB %llu Sum_Act_AB %llu\nMax_Slp_IB %llu Sum_Slp_AB %llu\n",
-		bus_node->node_bw[ACTIVE_CTX].max_ib,
-		bus_node->node_bw[ACTIVE_CTX].sum_ab,
-		bus_node->node_bw[DUAL_CTX].max_ib,
-		bus_node->node_bw[DUAL_CTX].sum_ab);
+		bus_node->node_bw[DUAL_CTX].sum_ab,
+		bus_node->node_bw[DUAL_CTX].util_used,
+		bus_node->node_bw[DUAL_CTX].vrail_used);
 	return off;
 }
 
@@ -120,11 +81,107 @@ struct static_rules_type {
 
 static struct static_rules_type static_rules;
 
-static int enable_nodeclk(struct nodeclk *nclk)
+static int bus_get_reg(struct nodeclk *nclk, struct device *dev)
+{
+	int ret = 0;
+	struct msm_bus_node_device_type *node_dev;
+
+	if (!(dev && nclk))
+		return -ENXIO;
+
+	node_dev = to_msm_bus_node(dev);
+	if (!strlen(nclk->reg_name)) {
+		dev_dbg(dev, "No regulator exist for node %d\n",
+						node_dev->node_info->id);
+		goto exit_of_get_reg;
+	} else {
+		if (!(IS_ERR_OR_NULL(nclk->reg)))
+			goto exit_of_get_reg;
+
+		nclk->reg = devm_regulator_get(dev, nclk->reg_name);
+		if (IS_ERR_OR_NULL(nclk->reg)) {
+			ret =
+			(IS_ERR(nclk->reg) ? PTR_ERR(nclk->reg) : -ENXIO);
+			dev_err(dev, "Error: Failed to get regulator %s:%d\n",
+							nclk->reg_name, ret);
+		} else {
+			dev_dbg(dev, "Succesfully got regulator for %d\n",
+				node_dev->node_info->id);
+		}
+	}
+
+exit_of_get_reg:
+	return ret;
+}
+
+static int bus_enable_reg(struct nodeclk *nclk)
 {
 	int ret = 0;
 
-	if (!nclk->enable) {
+	if (!nclk) {
+		ret = -ENXIO;
+		goto exit_bus_enable_reg;
+	}
+
+	if ((IS_ERR_OR_NULL(nclk->reg))) {
+		ret = -ENXIO;
+		goto exit_bus_enable_reg;
+	}
+
+	ret = regulator_enable(nclk->reg);
+	if (ret) {
+		MSM_BUS_ERR("Failed to enable regulator for %s\n",
+							nclk->reg_name);
+		goto exit_bus_enable_reg;
+	}
+	pr_debug("%s: Enabled Reg\n", __func__);
+exit_bus_enable_reg:
+	return ret;
+}
+
+static int bus_disable_reg(struct nodeclk *nclk)
+{
+	int ret = 0;
+
+	if (!nclk) {
+		ret = -ENXIO;
+		goto exit_bus_disable_reg;
+	}
+
+	if ((IS_ERR_OR_NULL(nclk->reg))) {
+		ret = -ENXIO;
+		goto exit_bus_disable_reg;
+	}
+
+	regulator_disable(nclk->reg);
+	pr_debug("%s: Disabled Reg\n", __func__);
+exit_bus_disable_reg:
+	return ret;
+}
+
+static int enable_nodeclk(struct nodeclk *nclk, struct device *dev)
+{
+	int ret = 0;
+
+	if (!nclk->enable && !nclk->setrate_only_clk) {
+		if (dev && strlen(nclk->reg_name)) {
+			if (IS_ERR_OR_NULL(nclk->reg)) {
+				ret = bus_get_reg(nclk, dev);
+				if (ret) {
+					dev_dbg(dev,
+						"Failed to get reg.Err %d\n",
+									ret);
+					goto exit_enable_nodeclk;
+				}
+			}
+
+			ret = bus_enable_reg(nclk);
+			if (ret) {
+				dev_dbg(dev, "Failed to enable reg. Err %d\n",
+									ret);
+				goto exit_enable_nodeclk;
+			}
+		}
 		ret = clk_prepare_enable(nclk->clk);
 
 		if (ret) {
@@ -133,6 +190,7 @@ static int enable_nodeclk(struct nodeclk *nclk)
 		} else
 			nclk->enable = true;
 	}
+exit_enable_nodeclk:
 	return ret;
 }
 
@@ -140,9 +198,10 @@ static int disable_nodeclk(struct nodeclk *nclk)
 {
 	int ret = 0;
 
-	if (nclk->enable) {
+	if (nclk->enable && !nclk->setrate_only_clk) {
 		clk_disable_unprepare(nclk->clk);
 		nclk->enable = false;
+		bus_disable_reg(nclk);
 	}
 	return ret;
 }
@@ -151,7 +210,8 @@ static int setrate_nodeclk(struct nodeclk *nclk, long rate)
 {
 	int ret = 0;
 
-	ret = clk_set_rate(nclk->clk, rate);
+	if (!nclk->enable_only_clk)
+		ret = clk_set_rate(nclk->clk, rate);
 
 	if (ret)
 		MSM_BUS_ERR("%s: failed to setrate clk", __func__);
@@ -193,6 +253,9 @@ static int send_rpm_msg(struct msm_bus_node_device_type *ndev, int ctx)
 				 ndev->node_info->mas_rpm_id);
 			goto exit_send_rpm_msg;
 		}
+		trace_bus_agg_bw(ndev->node_info->id,
+			ndev->node_info->mas_rpm_id, rpm_ctx,
+			ndev->node_bw[ctx].sum_ab);
 	}
 
 	if (ndev->node_info->slv_rpm_id != -1) {
@@ -207,6 +270,9 @@ static int send_rpm_msg(struct msm_bus_node_device_type *ndev, int ctx)
 				ndev->node_info->slv_rpm_id);
 			goto exit_send_rpm_msg;
 		}
+		trace_bus_agg_bw(ndev->node_info->id,
+			ndev->node_info->slv_rpm_id, rpm_ctx,
+			ndev->node_bw[ctx].sum_ab);
 	}
 exit_send_rpm_msg:
 	return ret;
@@ -217,8 +283,8 @@ static int flush_bw_data(struct msm_bus_node_device_type *node_info, int ctx)
 	int ret = 0;
 
 	if (!node_info) {
-		MSM_BUS_ERR("%s: Unable to find bus device for device %d",
-			__func__, node_info->node_info->id);
+		MSM_BUS_ERR("%s: Unable to find bus device for device",
+			__func__);
 		ret = -ENODEV;
 		goto exit_flush_bw_data;
 	}
@@ -295,15 +361,17 @@ static int flush_clk_data(struct msm_bus_node_device_type *node, int ctx)
 				goto exit_flush_clk_data;
 			}
 
-			ret = enable_nodeclk(nodeclk);
+			ret = enable_nodeclk(nodeclk, &node->dev);
 
 			if ((node->node_info->is_fab_dev) &&
-				!IS_ERR_OR_NULL(node->qos_clk.clk))
-					ret = enable_nodeclk(&node->qos_clk);
+				!IS_ERR_OR_NULL(node->bus_qos_clk.clk))
+					ret = enable_nodeclk(&node->bus_qos_clk,
+								&node->dev);
 		} else {
 			if ((node->node_info->is_fab_dev) &&
-				!IS_ERR_OR_NULL(node->qos_clk.clk))
-					ret = disable_nodeclk(&node->qos_clk);
+				!IS_ERR_OR_NULL(node->bus_qos_clk.clk))
+					ret =
+					disable_nodeclk(&node->bus_qos_clk);
 
 			ret = disable_nodeclk(nodeclk);
 		}
@@ -314,7 +382,6 @@ static int flush_clk_data(struct msm_bus_node_device_type *node, int ctx)
 			ret = -ENODEV;
 			goto exit_flush_clk_data;
 		}
-		trace_bus_agg_clk(node->node_info->id, ctx, nodeclk->rate);
 		MSM_BUS_DBG("%s: Updated %d clk to %llu", __func__,
 				node->node_info->id, nodeclk->rate);
 	}
@@ -359,6 +426,9 @@ int msm_bus_commit_data(struct list_head *clist)
 	}
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
+		if (unlikely(node->node_info->defer_qos))
+				msm_bus_dev_init_qos(&node->dev, NULL);
+
 		for (ctx = 0; ctx < NUM_CTX; ctx++) {
 			ret = flush_clk_data(node, ctx);
 			if (ret)
@@ -415,115 +485,60 @@ static void msm_bus_fab_init_noc_ops(struct msm_bus_node_device_type *bus_dev)
 	}
 }
 
-static int msm_bus_qos_disable_clk(struct msm_bus_node_device_type *node,
-				int disable_bus_qos_clk)
+static int msm_bus_disable_node_qos_clk(struct msm_bus_node_device_type *node)
 {
 	struct msm_bus_node_device_type *bus_node = NULL;
+	int i;
 	int ret = 0;
 
-	if (!node) {
+	if (!node || (!to_msm_bus_node(node->node_info->bus_device))) {
 		ret = -ENXIO;
-		goto exit_disable_qos_clk;
+		goto exit_disable_node_qos_clk;
 	}
 	bus_node = to_msm_bus_node(node->node_info->bus_device);
 
-	if (!bus_node) {
-		ret = -ENXIO;
-		goto exit_disable_qos_clk;
-	}
+	for (i = 0; i < bus_node->num_node_qos_clks; i++)
+		ret = disable_nodeclk(&bus_node->node_qos_clks[i]);
 
-	if (disable_bus_qos_clk)
-		ret = disable_nodeclk(&bus_node->clk[DUAL_CTX]);
-
-	if (ret) {
-		MSM_BUS_ERR("%s: Failed to disable bus clk, node %d",
-			__func__, node->node_info->id);
-		goto exit_disable_qos_clk;
-	}
-
-	if (!IS_ERR_OR_NULL(node->qos_clk.clk)) {
-		ret = disable_nodeclk(&node->qos_clk);
-
-		if (ret) {
-			MSM_BUS_ERR("%s: Failed to disable mas qos clk,node %d",
-				__func__, node->node_info->id);
-			goto exit_disable_qos_clk;
-		}
-	}
-
-exit_disable_qos_clk:
+exit_disable_node_qos_clk:
 	return ret;
 }
 
-static int msm_bus_qos_enable_clk(struct msm_bus_node_device_type *node)
+static int msm_bus_enable_node_qos_clk(struct msm_bus_node_device_type *node)
 {
 	struct msm_bus_node_device_type *bus_node = NULL;
-	long rounded_rate;
+	int i;
 	int ret = 0;
-	int bus_qos_enabled = 0;
+	long rounded_rate;
 
-	if (!node) {
+	if (!node || (!to_msm_bus_node(node->node_info->bus_device))) {
 		ret = -ENXIO;
-		goto exit_enable_qos_clk;
+		goto exit_enable_node_qos_clk;
 	}
 	bus_node = to_msm_bus_node(node->node_info->bus_device);
 
-	if (!bus_node) {
-		ret = -ENXIO;
-		goto exit_enable_qos_clk;
-	}
-
-	/* Check if the bus clk is already set before trying to set it
-	 * Do this only during
-	 *	a. Bootup
-	 *	b. Only for bus clks
-	 **/
-	if (!clk_get_rate(bus_node->clk[DUAL_CTX].clk)) {
-		rounded_rate = clk_round_rate(bus_node->clk[DUAL_CTX].clk, 1);
-		ret = setrate_nodeclk(&bus_node->clk[DUAL_CTX], rounded_rate);
-		if (ret) {
-			MSM_BUS_ERR("%s: Failed to set bus clk, node %d",
-				__func__, node->node_info->id);
-			goto exit_enable_qos_clk;
+	for (i = 0; i < bus_node->num_node_qos_clks; i++) {
+		if (!bus_node->node_qos_clks[i].enable_only_clk) {
+			rounded_rate =
+				clk_round_rate(
+					bus_node->node_qos_clks[i].clk, 1);
+			ret = setrate_nodeclk(&bus_node->node_qos_clks[i],
+								rounded_rate);
+			if (ret)
+				MSM_BUS_DBG("%s: Failed set rate clk,node %d\n",
+					__func__, node->node_info->id);
 		}
-	}
-
-	ret = enable_nodeclk(&bus_node->clk[DUAL_CTX]);
-	if (ret) {
-		MSM_BUS_ERR("%s: Failed to enable bus clk, node %d",
-			__func__, node->node_info->id);
-		goto exit_enable_qos_clk;
-	}
-	bus_qos_enabled = 1;
-
-	if (!IS_ERR_OR_NULL(bus_node->qos_clk.clk)) {
-		ret = enable_nodeclk(&bus_node->qos_clk);
+		ret = enable_nodeclk(&bus_node->node_qos_clks[i],
+					node->node_info->bus_device);
 		if (ret) {
-			MSM_BUS_ERR("%s: Failed to enable bus QOS clk, node %d",
-				__func__, node->node_info->id);
-			goto exit_enable_qos_clk;
-		}
-	}
-
-	if (!IS_ERR_OR_NULL(node->qos_clk.clk)) {
-		rounded_rate = clk_round_rate(node->qos_clk.clk, 1);
-		ret = setrate_nodeclk(&node->qos_clk, rounded_rate);
-		if (ret) {
-			MSM_BUS_ERR("%s: Failed to enable mas qos clk, node %d",
-				__func__, node->node_info->id);
-			goto exit_enable_qos_clk;
+			MSM_BUS_DBG("%s: Failed to set Qos Clks ret %d\n",
+				__func__, ret);
+			msm_bus_disable_node_qos_clk(node);
+			goto exit_enable_node_qos_clk;
 		}
 
-		ret = enable_nodeclk(&node->qos_clk);
-		if (ret) {
-			MSM_BUS_ERR("Err enable mas qos clk, node %d ret %d",
-				node->node_info->id, ret);
-			goto exit_enable_qos_clk;
-		}
 	}
-	ret = bus_qos_enabled;
-
-exit_enable_qos_clk:
+exit_enable_node_qos_clk:
 	return ret;
 }
 
@@ -540,7 +555,7 @@ int msm_bus_enable_limiter(struct msm_bus_node_device_type *node_dev,
 	}
 
 	if (!node_dev->ap_owned) {
-		MSM_BUS_ERR("Device is not AP owned %d.",
+		MSM_BUS_ERR("Device is not AP owned %d",
 						node_dev->node_info->id);
 		ret = -ENXIO;
 		goto exit_enable_limiter;
@@ -594,7 +609,7 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 			to_msm_bus_node(node_dev->node_info->bus_device);
 
 		if (!bus_node_info) {
-			MSM_BUS_ERR("%s: Unable to get bus device infofor %d",
+			MSM_BUS_ERR("%s: Unable to get bus device info for %d",
 				__func__,
 				node_dev->node_info->id);
 			ret = -ENXIO;
@@ -611,10 +626,11 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 				if (bus_node_info->fabdev->bypass_qos_prg)
 					goto exit_init_qos;
 
-				ret = msm_bus_qos_enable_clk(node_dev);
+				ret = msm_bus_enable_node_qos_clk(node_dev);
 				if (ret < 0) {
-					MSM_BUS_ERR("Can't Enable QoS clk %d",
+					MSM_BUS_DBG("Can't Enable QoS clk %d\n",
 					node_dev->node_info->id);
+					node_dev->node_info->defer_qos = true;
 					goto exit_init_qos;
 				}
 
@@ -624,7 +640,8 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 					bus_node_info->fabdev->base_offset,
 					bus_node_info->fabdev->qos_off,
 					bus_node_info->fabdev->qos_freq);
-				ret = msm_bus_qos_disable_clk(node_dev, ret);
+				ret = msm_bus_disable_node_qos_clk(node_dev);
+				node_dev->node_info->defer_qos = false;
 			}
 		} else
 			MSM_BUS_ERR("%s: Skipping QOS init for %d",
@@ -670,8 +687,6 @@ static int msm_bus_fabric_init(struct device *dev,
 	fabdev->qos_freq = pdata->fabdev->qos_freq;
 	fabdev->bus_type = pdata->fabdev->bus_type;
 	fabdev->bypass_qos_prg = pdata->fabdev->bypass_qos_prg;
-	fabdev->util_fact = pdata->fabdev->util_fact;
-	fabdev->vrail_comp = pdata->fabdev->vrail_comp;
 	msm_bus_fab_init_noc_ops(node_dev);
 
 	fabdev->qos_base = devm_ioremap(dev,
@@ -692,27 +707,71 @@ static int msm_bus_init_clk(struct device *bus_dev,
 				struct msm_bus_node_device_type *pdata)
 {
 	unsigned int ctx;
-	int ret = 0;
 	struct msm_bus_node_device_type *node_dev = to_msm_bus_node(bus_dev);
+	int i;
 
 	for (ctx = 0; ctx < NUM_CTX; ctx++) {
 		if (!IS_ERR_OR_NULL(pdata->clk[ctx].clk)) {
 			node_dev->clk[ctx].clk = pdata->clk[ctx].clk;
+			node_dev->clk[ctx].enable_only_clk =
+					pdata->clk[ctx].enable_only_clk;
+			node_dev->clk[ctx].setrate_only_clk =
+					pdata->clk[ctx].setrate_only_clk;
 			node_dev->clk[ctx].enable = false;
 			node_dev->clk[ctx].dirty = false;
-			MSM_BUS_ERR("%s: Valid node clk node %d ctx %d",
+			strlcpy(node_dev->clk[ctx].reg_name,
+				pdata->clk[ctx].reg_name, MAX_REG_NAME);
+			node_dev->clk[ctx].reg = NULL;
+			bus_get_reg(&node_dev->clk[ctx], bus_dev);
+			MSM_BUS_DBG("%s: Valid node clk node %d ctx %d\n",
 				__func__, node_dev->node_info->id, ctx);
 		}
 	}
 
-	if (!IS_ERR_OR_NULL(pdata->qos_clk.clk)) {
-		node_dev->qos_clk.clk = pdata->qos_clk.clk;
-		node_dev->qos_clk.enable = false;
-		MSM_BUS_ERR("%s: Valid Iface clk node %d", __func__,
+	if (!IS_ERR_OR_NULL(pdata->bus_qos_clk.clk)) {
+		node_dev->bus_qos_clk.clk = pdata->bus_qos_clk.clk;
+		node_dev->bus_qos_clk.enable_only_clk =
+					pdata->bus_qos_clk.enable_only_clk;
+		node_dev->bus_qos_clk.setrate_only_clk =
+					pdata->bus_qos_clk.setrate_only_clk;
+		node_dev->bus_qos_clk.enable = false;
+		strlcpy(node_dev->bus_qos_clk.reg_name,
+			pdata->bus_qos_clk.reg_name, MAX_REG_NAME);
+		node_dev->bus_qos_clk.reg = NULL;
+		MSM_BUS_DBG("%s: Valid bus qos clk node %d\n", __func__,
 						node_dev->node_info->id);
 	}
 
-	return ret;
+	if (pdata->num_node_qos_clks) {
+		node_dev->num_node_qos_clks = pdata->num_node_qos_clks;
+		node_dev->node_qos_clks = devm_kzalloc(bus_dev,
+			(node_dev->num_node_qos_clks * sizeof(struct nodeclk)),
+			GFP_KERNEL);
+		if (!node_dev->node_qos_clks) {
+			dev_err(bus_dev, "Failed to alloc memory for qos clk");
+			return -ENOMEM;
+		}
+
+		for (i = 0; i < pdata->num_node_qos_clks; i++) {
+			node_dev->node_qos_clks[i].clk =
+					pdata->node_qos_clks[i].clk;
+			node_dev->node_qos_clks[i].enable_only_clk =
+					pdata->node_qos_clks[i].enable_only_clk;
+			node_dev->node_qos_clks[i].setrate_only_clk =
+				pdata->node_qos_clks[i].setrate_only_clk;
+			node_dev->node_qos_clks[i].enable = false;
+			strlcpy(node_dev->node_qos_clks[i].reg_name,
+				pdata->node_qos_clks[i].reg_name, MAX_REG_NAME);
+			node_dev->node_qos_clks[i].reg = NULL;
+			MSM_BUS_DBG("%s: Valid qos clk[%d] node %d %d Reg%s\n",
+					__func__, i,
+					node_dev->node_info->id,
+					node_dev->num_node_qos_clks,
+					node_dev->node_qos_clks[i].reg_name);
+		}
+	}
+
+	return 0;
 }
 
 static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
@@ -743,8 +802,6 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->num_connections = pdata_node_info->num_connections;
 	node_info->num_blist = pdata_node_info->num_blist;
 	node_info->num_qports = pdata_node_info->num_qports;
-	node_info->num_aggports = pdata_node_info->num_aggports;
-	node_info->buswidth = pdata_node_info->buswidth;
 	node_info->virt_dev = pdata_node_info->virt_dev;
 	node_info->is_fab_dev = pdata_node_info->is_fab_dev;
 	node_info->qos_params.mode = pdata_node_info->qos_params.mode;
@@ -759,8 +816,28 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->qos_params.thmp = pdata_node_info->qos_params.thmp;
 	node_info->qos_params.ws = pdata_node_info->qos_params.ws;
 	node_info->qos_params.bw_buffer = pdata_node_info->qos_params.bw_buffer;
-	node_info->util_fact = pdata_node_info->util_fact;
-	node_info->vrail_comp = pdata_node_info->vrail_comp;
+	node_info->agg_params.buswidth = pdata_node_info->agg_params.buswidth;
+	node_info->agg_params.agg_scheme =
+					pdata_node_info->agg_params.agg_scheme;
+	node_info->agg_params.vrail_comp =
+					pdata_node_info->agg_params.vrail_comp;
+	node_info->agg_params.num_aggports =
+				pdata_node_info->agg_params.num_aggports;
+	node_info->agg_params.num_util_levels =
+				pdata_node_info->agg_params.num_util_levels;
+	node_info->agg_params.util_levels = devm_kzalloc(bus_dev,
+			sizeof(struct node_util_levels_type) *
+			node_info->agg_params.num_util_levels,
+			GFP_KERNEL);
+	if (!node_info->agg_params.util_levels) {
+		MSM_BUS_ERR("%s: Agg util level alloc failed\n", __func__);
+		ret = -ENOMEM;
+		goto exit_copy_node_info;
+	}
+	memcpy(node_info->agg_params.util_levels,
+		pdata_node_info->agg_params.util_levels,
+		sizeof(struct node_util_levels_type) *
+			pdata_node_info->agg_params.num_util_levels);
 
 	node_info->dev_connections = devm_kzalloc(bus_dev,
 			sizeof(struct device *) *
@@ -850,10 +927,8 @@ static struct device *msm_bus_device_init(
 
 	bus_node = kzalloc(sizeof(struct msm_bus_node_device_type), GFP_KERNEL);
 	if (!bus_node) {
-		MSM_BUS_ERR("%s:Bus node alloc failed\n", __func__);
-		kfree(bus_dev);
-		bus_dev = NULL;
-		goto exit_device_init;
+		ret = -ENOMEM;
+		goto err_device_init;
 	}
 	bus_dev = &bus_node->dev;
 	device_initialize(bus_dev);
@@ -861,47 +936,37 @@ static struct device *msm_bus_device_init(
 	node_info = devm_kzalloc(bus_dev,
 			sizeof(struct msm_bus_node_info_type), GFP_KERNEL);
 	if (!node_info) {
-		MSM_BUS_ERR("%s:Bus node info alloc failed\n", __func__);
-		devm_kfree(bus_dev, bus_node);
-		kfree(bus_dev);
-		bus_dev = NULL;
-		goto exit_device_init;
+		ret = -ENOMEM;
+		goto err_put_device;
 	}
 
 	bus_node->node_info = node_info;
 	bus_node->ap_owned = pdata->ap_owned;
+	bus_dev->of_node = pdata->of_node;
 
-	if (msm_bus_copy_node_info(pdata, bus_dev) < 0) {
-		devm_kfree(bus_dev, bus_node);
-		devm_kfree(bus_dev, node_info);
-		kfree(bus_dev);
-		bus_dev = NULL;
-		goto exit_device_init;
-	}
+	ret = msm_bus_copy_node_info(pdata, bus_dev);
+	if (ret)
+		goto err_put_device;
 
 	bus_dev->bus = &msm_bus_type;
 	dev_set_name(bus_dev, bus_node->node_info->name);
 
 	ret = device_add(bus_dev);
-	if (ret < 0) {
+	if (ret) {
 		MSM_BUS_ERR("%s: Error registering device %d",
 				__func__, pdata->node_info->id);
-		devm_kfree(bus_dev, bus_node);
-		devm_kfree(bus_dev, node_info->dev_connections);
-		devm_kfree(bus_dev, node_info->connections);
-		devm_kfree(bus_dev, node_info->black_connections);
-		devm_kfree(bus_dev, node_info->black_listed_connections);
-		devm_kfree(bus_dev, node_info);
-		kfree(bus_dev);
-		bus_dev = NULL;
-		goto exit_device_init;
+		goto err_put_device;
 	}
-	device_create_file(bus_dev, &dev_attr_vrail);
 	device_create_file(bus_dev, &dev_attr_bw);
 	INIT_LIST_HEAD(&bus_node->devlist);
-
-exit_device_init:
 	return bus_dev;
+
+err_put_device:
+	put_device(bus_dev);
+	bus_dev = NULL;
+	kfree(bus_node);
+err_device_init:
+	return ERR_PTR(ret);
 }
 
 static int msm_bus_setup_dev_conn(struct device *bus_dev, void *data)
@@ -990,7 +1055,7 @@ static int msm_bus_node_debug(struct device *bus_dev, void *data)
 	}
 
 	MSM_BUS_DBG("Device = %d buswidth %u", bus_node->node_info->id,
-				bus_node->node_info->buswidth);
+				bus_node->node_info->agg_params.buswidth);
 	for (j = 0; j < bus_node->node_info->num_connections; j++) {
 		struct msm_bus_node_device_type *bdev =
 		to_msm_bus_node(bus_node->node_info->dev_connections[j]);
@@ -1002,6 +1067,26 @@ static int msm_bus_node_debug(struct device *bus_dev, void *data)
 
 exit_node_debug:
 	return ret;
+}
+
+static int msm_bus_free_dev(struct device *dev, void *data)
+{
+	struct msm_bus_node_device_type *bus_node = NULL;
+
+	bus_node = to_msm_bus_node(dev);
+
+	if (bus_node)
+		MSM_BUS_ERR("\n%s: Removing device %d", __func__,
+						bus_node->node_info->id);
+	device_unregister(dev);
+	kfree(bus_node);
+	return 0;
+}
+
+int msm_bus_device_remove(struct platform_device *pdev)
+{
+	bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_free_dev);
+	return 0;
 }
 
 static int msm_bus_device_probe(struct platform_device *pdev)
@@ -1028,14 +1113,18 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 
 		node_dev = msm_bus_device_init(&pdata->info[i]);
 
-		if (!node_dev) {
+		if (IS_ERR(node_dev)) {
 			MSM_BUS_ERR("%s: Error during dev init for %d",
 				__func__, pdata->info[i].node_info->id);
-			ret = -ENXIO;
+			ret = PTR_ERR(node_dev);
 			goto exit_device_probe;
 		}
 
 		ret = msm_bus_init_clk(node_dev, &pdata->info[i]);
+		if (ret) {
+			MSM_BUS_ERR("\n Failed to init bus clk. ret %d", ret);
+			goto exit_device_probe;
+		}
 		/*Is this a fabric device ?*/
 		if (pdata->info[i].node_info->is_fab_dev) {
 			MSM_BUS_DBG("%s: %d is a fab", __func__,
@@ -1056,12 +1145,12 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 		goto exit_device_probe;
 	}
 
+	/*
+	 * Setup the QoS for the nodes, don't check the error codes as we
+	 * defer QoS programming to the first transaction in cases of failure
+	 * and we want to continue the probe.
+	 */
 	ret = bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_dev_init_qos);
-	if (ret) {
-		MSM_BUS_ERR("%s: Error during qos init", __func__);
-		goto exit_device_probe;
-	}
-
 
 	/* Register the arb layer ops */
 	msm_bus_arb_setops_adhoc(&arb_ops);
@@ -1069,7 +1158,10 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 
 	devm_kfree(&pdev->dev, pdata->info);
 	devm_kfree(&pdev->dev, pdata);
+	return 0;
+
 exit_device_probe:
+	msm_bus_device_remove(pdev);
 	return ret;
 }
 
@@ -1103,24 +1195,6 @@ int msm_bus_device_rules_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int msm_bus_free_dev(struct device *dev, void *data)
-{
-	struct msm_bus_node_device_type *bus_node = NULL;
-
-	bus_node = dev->platform_data;
-
-	if (bus_node)
-		MSM_BUS_ERR("\n%s: Removing device %d", __func__,
-						bus_node->node_info->id);
-	device_unregister(dev);
-	return 0;
-}
-
-int msm_bus_device_remove(struct platform_device *pdev)
-{
-	bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_free_dev);
-	return 0;
-}
 
 static struct of_device_id rules_match[] = {
 	{.compatible = "qcom,msm-bus-static-bw-rules"},

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is Mree software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,8 +24,6 @@
 #define NUM_CL_HANDLES	50
 #define NUM_LNODES	3
 #define MAX_STR_CL	50
-
-#define DEBUG_REC_TRANSACTION 0
 
 struct bus_search_type {
 	struct list_head link;
@@ -397,18 +395,168 @@ exit_getpath:
 	return first_hop;
 }
 
-static uint64_t arbitrate_bus_req(struct msm_bus_node_device_type *bus_dev,
-								int ctx)
+static uint64_t scheme1_agg_scheme(struct msm_bus_node_device_type *bus_dev,
+			struct msm_bus_node_device_type *fab_dev, int ctx)
 {
-	int i;
-	uint64_t max_ib = 0;
-	uint64_t sum_ab = 0;
+	uint64_t max_ib;
+	uint64_t sum_ab;
 	uint64_t bw_max_hz;
-	struct msm_bus_node_device_type *fab_dev = NULL;
+	uint32_t util_fact = 0;
+	uint32_t vrail_comp = 0;
+	struct node_util_levels_type *utils;
+	int i;
+	int num_util_levels;
+
+	/*
+	 *  Account for Util factor and vrail comp.
+	 *  Util factor is picked according to the current sum(AB) for this
+	 *  node and for this context.
+	 *  Vrail comp is fixed for the entire performance range.
+	 *  They default to 100 if absent.
+	 *
+	 *  The aggregated clock is computed as:
+	 *  Freq_hz = max((sum(ab) * util_fact)/num_chan, max(ib)/vrail_comp)
+	 *				/ bus-width
+	 */
+	if (bus_dev->node_info->agg_params.num_util_levels) {
+		utils = bus_dev->node_info->agg_params.util_levels;
+		num_util_levels =
+			bus_dev->node_info->agg_params.num_util_levels;
+	} else {
+		utils = fab_dev->node_info->agg_params.util_levels;
+		num_util_levels =
+			fab_dev->node_info->agg_params.num_util_levels;
+	}
+
+	sum_ab = bus_dev->node_bw[ctx].sum_ab;
+	max_ib = bus_dev->node_bw[ctx].max_ib;
+
+	for (i = 0; i < num_util_levels; i++) {
+		if (sum_ab < utils[i].threshold) {
+			util_fact = utils[i].util_fact;
+			break;
+		}
+	}
+	if (i == num_util_levels)
+		util_fact = utils[(num_util_levels - 1)].util_fact;
+
+	vrail_comp = bus_dev->node_info->agg_params.vrail_comp ?
+			bus_dev->node_info->agg_params.vrail_comp :
+			fab_dev->node_info->agg_params.vrail_comp;
+
+	bus_dev->node_bw[ctx].vrail_used = vrail_comp;
+	bus_dev->node_bw[ctx].util_used = util_fact;
+
+	if (util_fact && (util_fact != 100)) {
+		sum_ab *= util_fact;
+		sum_ab = msm_bus_div64(100, sum_ab);
+	}
+
+	if (vrail_comp && (vrail_comp != 100)) {
+		max_ib *= 100;
+		max_ib = msm_bus_div64(vrail_comp, max_ib);
+	}
+
+	/* Account for multiple channels if any */
+	if (bus_dev->node_info->agg_params.num_aggports > 1)
+		sum_ab = msm_bus_div64(
+				bus_dev->node_info->agg_params.num_aggports,
+					sum_ab);
+
+	if (!bus_dev->node_info->agg_params.buswidth) {
+		MSM_BUS_WARN("No bus width found for %d. Using default\n",
+					bus_dev->node_info->id);
+		bus_dev->node_info->agg_params.buswidth = 8;
+	}
+
+	bw_max_hz = max(max_ib, sum_ab);
+	bw_max_hz = msm_bus_div64(bus_dev->node_info->agg_params.buswidth,
+					bw_max_hz);
+
+	return bw_max_hz;
+}
+
+static uint64_t legacy_agg_scheme(struct msm_bus_node_device_type *bus_dev,
+			struct msm_bus_node_device_type *fab_dev, int ctx)
+{
+	uint64_t max_ib;
+	uint64_t sum_ab;
+	uint64_t bw_max_hz;
 	uint32_t util_fact = 0;
 	uint32_t vrail_comp = 0;
 
-	/* Find max ib */
+	/*
+	 *  Util_fact and vrail comp are obtained from fabric/Node's dts
+	 *  properties and are fixed for the entire performance range.
+	 *  They default to 100 if absent.
+	 *
+	 *  The clock frequency is computed as:
+	 *  Freq_hz = max((sum(ab) * util_fact)/num_chan, max(ib)/vrail_comp)
+	 *				/ bus-width
+	 */
+	util_fact = fab_dev->node_info->agg_params.util_levels[0].util_fact;
+	vrail_comp = fab_dev->node_info->agg_params.vrail_comp;
+
+	if (bus_dev->node_info->agg_params.num_util_levels)
+		util_fact =
+		bus_dev->node_info->agg_params.util_levels[0].util_fact ?
+		bus_dev->node_info->agg_params.util_levels[0].util_fact :
+		util_fact;
+
+	vrail_comp = bus_dev->node_info->agg_params.vrail_comp ?
+			bus_dev->node_info->agg_params.vrail_comp :
+			vrail_comp;
+
+	bus_dev->node_bw[ctx].vrail_used = vrail_comp;
+	bus_dev->node_bw[ctx].util_used = util_fact;
+	sum_ab = bus_dev->node_bw[ctx].sum_ab;
+	max_ib = bus_dev->node_bw[ctx].max_ib;
+
+	if (util_fact && (util_fact != 100)) {
+		sum_ab *= util_fact;
+		sum_ab = msm_bus_div64(100, sum_ab);
+	}
+
+	if (vrail_comp && (vrail_comp != 100)) {
+		max_ib *= 100;
+		max_ib = msm_bus_div64(vrail_comp, max_ib);
+	}
+
+	/* Account for multiple channels if any */
+	if (bus_dev->node_info->agg_params.num_aggports > 1)
+		sum_ab = msm_bus_div64(
+				bus_dev->node_info->agg_params.num_aggports,
+					sum_ab);
+
+	if (!bus_dev->node_info->agg_params.buswidth) {
+		MSM_BUS_WARN("No bus width found for %d. Using default\n",
+					bus_dev->node_info->id);
+		bus_dev->node_info->agg_params.buswidth = 8;
+	}
+
+	bw_max_hz = max(max_ib, sum_ab);
+	bw_max_hz = msm_bus_div64(bus_dev->node_info->agg_params.buswidth,
+					bw_max_hz);
+
+	return bw_max_hz;
+}
+
+static uint64_t aggregate_bus_req(struct msm_bus_node_device_type *bus_dev,
+									int ctx)
+{
+	uint64_t bw_hz = 0;
+	int i;
+	struct msm_bus_node_device_type *fab_dev = NULL;
+	uint32_t agg_scheme;
+	uint64_t max_ib = 0;
+	uint64_t sum_ab = 0;
+
+	if (!bus_dev || !to_msm_bus_node(bus_dev->node_info->bus_device)) {
+		MSM_BUS_ERR("Bus node pointer is Invalid");
+		goto exit_agg_bus_req;
+	}
+
+	fab_dev = to_msm_bus_node(bus_dev->node_info->bus_device);
 	for (i = 0; i < bus_dev->num_lnodes; i++) {
 		max_ib = max(max_ib, bus_dev->lnode_list[i].lnode_ib[ctx]);
 		sum_ab += bus_dev->lnode_list[i].lnode_ab[ctx];
@@ -417,47 +565,26 @@ static uint64_t arbitrate_bus_req(struct msm_bus_node_device_type *bus_dev,
 	bus_dev->node_bw[ctx].sum_ab = sum_ab;
 	bus_dev->node_bw[ctx].max_ib = max_ib;
 
-	/*
-	 *  Account for Util factor and vrail comp. The new aggregation
-	 *  formula is:
-	 *  Freq_hz = max((sum(ab) * util_fact)/num_chan, max(ib)/vrail_comp)
-	 *				/ bus-width
-	 *  util_fact and vrail comp are obtained from fabric/Node's dts
-	 *  properties.
-	 *  They default to 100 if absent.
-	 */
-	fab_dev = bus_dev->node_info->bus_device->platform_data;
-	/* Don't do this for virtual fabrics */
-	if (fab_dev && fab_dev->fabdev) {
-		util_fact = bus_dev->node_info->util_fact ?
-			bus_dev->node_info->util_fact :
-			fab_dev->fabdev->util_fact;
-		vrail_comp = bus_dev->node_info->vrail_comp ?
-			bus_dev->node_info->vrail_comp :
-			fab_dev->fabdev->vrail_comp;
-		sum_ab *= util_fact;
-		sum_ab = msm_bus_div64(100, sum_ab);
-		max_ib *= 100;
-		max_ib = msm_bus_div64(vrail_comp, max_ib);
+	if (bus_dev->node_info->agg_params.agg_scheme != AGG_SCHEME_NONE)
+		agg_scheme = bus_dev->node_info->agg_params.agg_scheme;
+	else
+		agg_scheme = fab_dev->node_info->agg_params.agg_scheme;
+
+	switch (agg_scheme) {
+	case AGG_SCHEME_1:
+		bw_hz = scheme1_agg_scheme(bus_dev, fab_dev, ctx);
+		break;
+	case AGG_SCHEME_LEG:
+		bw_hz = legacy_agg_scheme(bus_dev, fab_dev, ctx);
+		break;
+	default:
+		panic("Invalid Bus aggregation scheme");
 	}
 
-	/* Account for multiple channels if any */
-	if (bus_dev->node_info->num_aggports > 1)
-		sum_ab = msm_bus_div64(bus_dev->node_info->num_aggports,
-					sum_ab);
-
-	if (!bus_dev->node_info->buswidth) {
-		MSM_BUS_WARN("No bus width found for %d. Using default\n",
-					bus_dev->node_info->id);
-		bus_dev->node_info->buswidth = 8;
-	}
-
-	bw_max_hz = max(max_ib, sum_ab);
-	bw_max_hz = msm_bus_div64(bus_dev->node_info->buswidth,
-					bw_max_hz);
-
-	return bw_max_hz;
+exit_agg_bus_req:
+	return bw_hz;
 }
+
 
 static void del_inp_list(struct list_head *list)
 {
@@ -507,7 +634,6 @@ static int msm_bus_apply_rules(struct list_head *list, bool after_clk_commit)
 							rule->lim_bw);
 		if (ret)
 			MSM_BUS_ERR("Failed to set limiter for %d", rule->id);
-		trace_bus_rules_apply(rule->id, rule->lim_bw, rule->throttle);
 	}
 
 	return ret;
@@ -603,7 +729,7 @@ static int update_path(struct device *src_dev, int dest, uint64_t act_req_ib,
 
 		for (i = 0; i < NUM_CTX; i++)
 			dev_info->node_bw[i].cur_clk_hz =
-					arbitrate_bus_req(dev_info, i);
+					aggregate_bus_req(dev_info, i);
 
 		add_node_to_clist(dev_info);
 
@@ -670,7 +796,7 @@ exit_remove_path:
 	return ret;
 }
 
-static void __maybe_unused getpath_debug(int src, int curr, int active_only)
+static void getpath_debug(int src, int curr, int active_only)
 {
 	struct device *dev_node;
 	struct device *dev_it;
@@ -766,6 +892,7 @@ static void unregister_client_adhoc(uint32_t cl)
 	commit_data();
 	msm_bus_dbg_client_data(client->pdata, MSM_BUS_DBG_UNREGISTER, cl);
 	kfree(client->src_pnode);
+	kfree(client->src_devs);
 	kfree(client);
 	handle_list.cl_list[cl] = NULL;
 exit_unregister_client:
@@ -801,11 +928,10 @@ static int alloc_handle_lst(int size)
 			goto exit_alloc_handle_lst;
 		}
 
-		memset(&t_cl_list[handle_list.num_entries], 0,
-			NUM_CL_HANDLES * sizeof(struct msm_bus_client *));
-
-		handle_list.num_entries += NUM_CL_HANDLES;
 		handle_list.cl_list = t_cl_list;
+		memset(&handle_list.cl_list[handle_list.num_entries], 0,
+			NUM_CL_HANDLES * sizeof(struct msm_bus_client *));
+		handle_list.num_entries += NUM_CL_HANDLES;
 	}
 exit_alloc_handle_lst:
 	return ret;
@@ -867,7 +993,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 					sizeof(struct device *), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(client->src_devs)) {
 		MSM_BUS_ERR("%s: Error allocating pathnode ptr!", __func__);
-		goto exit_register_client;
+		goto exit_src_dev_malloc_fail;
 	}
 	client->curr = -1;
 
@@ -886,7 +1012,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 		if (IS_ERR_OR_NULL(dev)) {
 			MSM_BUS_ERR("%s:Failed to find path.src %d dest %d",
 				__func__, src, dest);
-			goto exit_register_client;
+			goto exit_invalid_data;
 		}
 		client->src_devs[i] = dev;
 
@@ -903,10 +1029,11 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 					handle);
 	MSM_BUS_DBG("%s:Client handle %d %s", __func__, handle,
 						client->pdata->name);
-
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return handle;
 exit_invalid_data:
+	kfree(client->src_devs);
+exit_src_dev_malloc_fail:
 	kfree(lnode);
 exit_lnode_malloc_fail:
 	kfree(client);
@@ -1043,6 +1170,8 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 	int ret = 0;
 	struct msm_bus_scale_pdata *pdata;
 	struct msm_bus_client *client;
+	const char *test_cl = "Null";
+	bool log_transaction = false;
 
 	rt_mutex_lock(&msm_bus_adhoc_lock);
 
@@ -1080,11 +1209,13 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 		goto exit_update_request;
 	}
 
+	if (!strcmp(test_cl, pdata->name))
+		log_transaction = true;
 
 	MSM_BUS_DBG("%s: cl: %u index: %d curr: %d num_paths: %d\n", __func__,
 		cl, index, client->curr, client->pdata->usecase->num_paths);
 	msm_bus_dbg_client_data(client->pdata, index , cl);
-	ret = update_client_paths(client, false, index);
+	ret = update_client_paths(client, log_transaction, index);
 	if (ret) {
 		pr_err("%s: Err updating path\n", __func__);
 		goto exit_update_request;
@@ -1109,6 +1240,8 @@ static void free_cl_mem(struct msm_bus_client_handle *cl)
 static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 {
 	int ret = 0;
+	char *test_cl = "test-client";
+	bool log_transaction = false;
 	u64 slp_ib, slp_ab;
 
 	rt_mutex_lock(&msm_bus_adhoc_lock);
@@ -1119,8 +1252,10 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 		goto exit_update_request;
 	}
 
-	if (DEBUG_REC_TRANSACTION)
-		msm_bus_dbg_rec_transaction(cl, ab, ib);
+	if (!strcmp(test_cl, cl->name))
+		log_transaction = true;
+
+	msm_bus_dbg_rec_transaction(cl, ab, ib);
 
 	if ((cl->cur_act_ib == ib) && (cl->cur_act_ab == ab)) {
 		MSM_BUS_DBG("%s:no change in request", cl->name);
@@ -1150,6 +1285,8 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 	cl->cur_slp_ib = slp_ib;
 	cl->cur_slp_ab = slp_ab;
 
+	if (log_transaction)
+		getpath_debug(cl->mas, cl->first_hop, cl->active_only);
 	trace_bus_update_request_end(cl->name);
 exit_update_request:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
@@ -1242,7 +1379,7 @@ register_adhoc(uint32_t mas, uint32_t slv, char *name, bool active_only)
 	}
 
 	len = strnlen(name, MAX_STR_CL);
-	client->name = kzalloc(len, GFP_KERNEL);
+	client->name = kzalloc((len + 1), GFP_KERNEL);
 	if (!client->name) {
 		MSM_BUS_ERR("%s: Error allocating client name buf", __func__);
 		free_cl_mem(client);

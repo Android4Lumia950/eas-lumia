@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is Mree software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,18 +135,18 @@ static ssize_t bus_floor_vote_store_api(struct device *dev,
 	char name[10];
 	u64 vote_khz = 0;
 
-	rt_mutex_lock(&msm_bus_floor_vote_lock);
+        rt_mutex_lock(&msm_bus_floor_vote_lock);
 	cl = dev_get_drvdata(dev);
 
 	if (!cl) {
 		pr_err("%s: Can't find cl", __func__);
-		rt_mutex_unlock(&msm_bus_floor_vote_lock);
+                rt_mutex_unlock(&msm_bus_floor_vote_lock);
 		return 0;
 	}
 
 	if (sscanf(buf, "%9s %llu", name, &vote_khz) != 2) {
 		pr_err("%s:return error", __func__);
-		rt_mutex_unlock(&msm_bus_floor_vote_lock);
+                rt_mutex_unlock(&msm_bus_floor_vote_lock);
 		return -EINVAL;
 	}
 	name[9] = '\0';
@@ -212,7 +212,7 @@ static struct msm_bus_node_device_type *msm_bus_floor_init_dev(
 	bus_node->node_info = node_info;
 	bus_node->ap_owned = true;
 	bus_node->node_info->bus_device = fab_dev;
-	bus_node->node_info->buswidth = 8;
+	bus_node->node_info->agg_params.buswidth = 8;
 	dev->bus = &msm_bus_type;
 	list_add_tail(&bus_node->dev_link, &fab_node->devlist);
 

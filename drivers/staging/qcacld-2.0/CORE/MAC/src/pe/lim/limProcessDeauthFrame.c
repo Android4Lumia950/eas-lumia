@@ -93,7 +93,6 @@ limProcessDeauthFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo, tpPESession p
                       FL("Invalid framelen received %d"), frameLen);)
         return;
     }
-
     if (LIM_IS_STA_ROLE(psessionEntry) &&
         ((eLIM_SME_WT_DISASSOC_STATE == psessionEntry->limSmeState) ||
          (eLIM_SME_WT_DEAUTH_STATE == psessionEntry->limSmeState)))
@@ -146,6 +145,7 @@ limProcessDeauthFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo, tpPESession p
         PELOGE(limLog(pMac, LOGE, FL("received an unprotected deauth from AP"));)
         // If the frame received is unprotected, forward it to the supplicant to initiate
         // an SA query
+
         //send the unprotected frame indication to SME
         limSendSmeUnprotectedMgmtFrameInd( pMac, pHdr->fc.subType,
                                            (tANI_U8*)pHdr, (frameLen + sizeof(tSirMacMgmtHdr)),

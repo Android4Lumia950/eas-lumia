@@ -1467,10 +1467,10 @@ static int cnss_smmu_init(struct device *dev)
 	int atomic_ctx = 1;
 	int ret = 0;
 
-	mapping = arm_iommu_create_mapping(&platform_bus_type,
-        penv->smmu_iova_start,
-        penv->smmu_iova_len,
-        12);
+mapping = arm_iommu_create_mapping(&platform_bus_type,
+                                   penv->smmu_iova_start,
+                                   penv->smmu_iova_len,
+                                   16);
 
 	if (IS_ERR(mapping)) {
 		pr_err("%s: create mapping failed, err = %d\n", __func__, ret);

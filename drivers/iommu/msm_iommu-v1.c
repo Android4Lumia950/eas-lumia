@@ -350,21 +350,15 @@ static void __sync_tlb(struct msm_iommu_drvdata *iommu_drvdata, int ctx,
 		struct msm_iommu_priv *priv)
 {
 	unsigned int val;
-	unsigned int count;
+	unsigned int res;
 	void __iomem *base = iommu_drvdata->cb_base;
 
 	SET_TLBSYNC(base, ctx, 0);
 	/* No barrier needed due to read dependency */
 
-	for (count = 500000; count > 0; count--) {
-		val = readl_relaxed(CTX_REG(CB_TLBSTATUS, base, ctx));
-		if ((val & CB_TLBSTATUS_SACTIVE) == 0)
-			break;
-
-		udelay(1);
-	}
-
-	if (!count)
+	res = readl_tight_poll_timeout(CTX_REG(CB_TLBSTATUS, base, ctx), val,
+				(val & CB_TLBSTATUS_SACTIVE) == 0, 5000000);
+	if (res)
 		check_tlb_sync_state(iommu_drvdata, ctx, priv);
 }
 
@@ -1554,9 +1548,13 @@ static int msm_iommu_domain_set_attr(struct iommu_domain *domain,
 static int msm_iommu_domain_get_attr(struct iommu_domain *domain,
 				enum iommu_attr attr, void *data)
 {
+	struct msm_iommu_priv *priv = domain->priv;
 	switch (attr) {
 	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
 		__do_get_redirect(domain, data);
+		break;
+	case DOMAIN_ATTR_PT_BASE_ADDR:
+		*((phys_addr_t *)data) = virt_to_phys(priv->pt.fl_table);
 		break;
 	default:
 		return -EINVAL;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2015,2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,8 +64,22 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 	 * We may have cmdbatch timer running, which also uses same
 	 * lock, take a lock with software interrupt disabled (bh)
 	 * to avoid spin lock recursion.
+	 *
+	 * Use Spin trylock because dispatcher can acquire drawctxt->lock
+	 * if context is pending and the fence it is waiting on just got
+	 * signalled. Dispatcher acquires drawctxt->lock and tries to
+	 * delete the cmdbatch timer using del_timer_sync().
+	 * del_timer_sync() waits till timer and its pending handlers
+	 * are deleted. But if the timer expires at the same time,
+	 * timer handler could be waiting on drawctxt->lock leading to a
+	 * deadlock. To prevent this use spin_trylock_bh.
 	 */
-	spin_lock_bh(&drawctxt->lock);
+	if (!spin_trylock_bh(&drawctxt->lock)) {
+		dev_err(device->dev, "  context[%d]: could not get lock\n",
+			context->id);
+		return;
+	}
+
 	dev_err(device->dev,
 		"  context[%d]: queue=%d, submit=%d, start=%d, retire=%d\n",
 		context->id, queue, drawctxt->submitted_timestamp,
@@ -322,15 +336,19 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 		KGSL_CONTEXT_PER_CONTEXT_TS |
 		KGSL_CONTEXT_USER_GENERATED_TS |
 		KGSL_CONTEXT_NO_FAULT_TOLERANCE |
-		KGSL_CONTEXT_INVALIDATE_ON_FAULT |
 		KGSL_CONTEXT_CTX_SWITCH |
 		KGSL_CONTEXT_PRIORITY_MASK |
 		KGSL_CONTEXT_TYPE_MASK |
 		KGSL_CONTEXT_PWR_CONSTRAINT |
 		KGSL_CONTEXT_IFH_NOP |
-		KGSL_CONTEXT_SECURE);
+		KGSL_CONTEXT_SECURE |
+		KGSL_CONTEXT_PREEMPT_STYLE_MASK);
 
 	/* Check for errors before trying to initialize */
+
+	/* If preemption is not supported, ignore preemption request */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		local &= ~KGSL_CONTEXT_PREEMPT_STYLE_MASK;
 
 	/* We no longer support legacy context switching */
 	if ((local & KGSL_CONTEXT_PREAMBLE) == 0 ||
@@ -439,8 +457,16 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 
 	/* deactivate context */
 	mutex_lock(&device->mutex);
-	if (rb->drawctxt_active == drawctxt)
-		adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
+	if (rb->drawctxt_active == drawctxt) {
+		if (adreno_dev->cur_rb == rb) {
+			if (!kgsl_active_count_get(device)) {
+				adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
+				kgsl_active_count_put(device);
+			} else
+				BUG();
+		} else
+			adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
+	}
 	mutex_unlock(&device->mutex);
 
 	spin_lock(&drawctxt->lock);
@@ -526,73 +552,6 @@ void adreno_drawctxt_destroy(struct kgsl_context *context)
 	kfree(drawctxt);
 }
 
-static void _adreno_context_restore_cpu(struct adreno_ringbuffer *rb,
-				struct adreno_context *drawctxt)
-{
-	kgsl_sharedmem_writel(rb->device, &(rb->device->memstore),
-			KGSL_MEMSTORE_RB_OFFSET(rb->device, current_context),
-			drawctxt ? drawctxt->base.id : 0);
-	kgsl_sharedmem_writel(rb->device, &(rb->device->memstore),
-			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-						current_context),
-			drawctxt ? drawctxt->base.id : 0);
-}
-
-/**
- * adreno_context_restore() - generic context restore handler
- * @rb: The RB in which context is to be restored
- *
- * Basic context restore handler that writes the context identifier
- * to the ringbuffer and issues pagetable switch commands if necessary.
- */
-static void adreno_context_restore(struct adreno_ringbuffer *rb)
-{
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_context *drawctxt = rb->drawctxt_active;
-	unsigned int cmds[11];
-	int ret;
-
-	if (!drawctxt)
-		return;
-	/*
-	 * write the context identifier to the ringbuffer, write to both
-	 * the global index and the index of the RB in which the context
-	 * operates. The global values will always be reliable since we
-	 * could be in middle of RB switch in which case the RB value may
-	 * not be accurate
-	 */
-	cmds[0] = cp_nop_packet(1);
-	cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
-	cmds[2] = cp_type3_packet(CP_MEM_WRITE, 2);
-	cmds[3] = device->memstore.gpuaddr +
-		KGSL_MEMSTORE_RB_OFFSET(rb, current_context);
-	cmds[4] = drawctxt->base.id;
-	cmds[5] = cp_type3_packet(CP_MEM_WRITE, 2);
-	cmds[6] = device->memstore.gpuaddr +
-		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-					current_context);
-	cmds[7] = drawctxt->base.id;
-	/* Flush the UCHE for new context */
-	cmds[8] = cp_type0_packet(
-		adreno_getreg(adreno_dev, ADRENO_REG_UCHE_INVALIDATE0), 2);
-	cmds[9] = 0;
-	if (adreno_is_a4xx(adreno_dev))
-		cmds[10] = 0x12;
-	else if (adreno_is_a3xx(adreno_dev))
-		cmds[10] = 0x90000000;
-	ret = adreno_ringbuffer_issuecmds(rb, KGSL_CMD_FLAGS_NONE, cmds, 11);
-	if (ret) {
-		/*
-		 * A failure to submit commands to ringbuffer means RB may
-		 * be full, in this case wait for idle and use CPU
-		 */
-		ret = adreno_idle(device);
-		BUG_ON(ret);
-		_adreno_context_restore_cpu(rb, drawctxt);
-	}
-}
-
 /**
  * adreno_drawctxt_switch - switch the current draw context in a given RB
  * @adreno_dev - The 3D device that owns the context
@@ -632,7 +591,7 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 		 /* No context - set the default pagetable and thats it. */
 		new_pt = device->mmu.defaultpagetable;
 	}
-	ret = adreno_iommu_set_pt(rb, new_pt);
+	ret = adreno_iommu_set_pt_ctx(rb, new_pt, drawctxt);
 	if (ret) {
 		KGSL_DRV_ERR(device,
 			"Failed to set pagetable on rb %d\n", rb->id);
@@ -644,8 +603,5 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 		kgsl_context_put(&rb->drawctxt_active->base);
 
 	rb->drawctxt_active = drawctxt;
-	/* Set the new context */
-	adreno_context_restore(rb);
-
 	return 0;
 }

@@ -4129,13 +4129,10 @@ static struct cftype cgroup_base_files[] = {
  * cgroup_populate_dir - create subsys files in a cgroup directory
  * @cgrp: target cgroup
  * @subsys_mask: mask of the subsystem ids whose files should be added
- *
- * On failure, no file is added.
  */
 static int cgroup_populate_dir(struct cgroup *cgrp, unsigned long subsys_mask)
 {
 	struct cgroup_subsys *ss;
-	int ret = 0;
 
 	/* process cftsets of each subsystem */
 	for_each_subsys(cgrp->root, ss) {
@@ -4143,11 +4140,8 @@ static int cgroup_populate_dir(struct cgroup *cgrp, unsigned long subsys_mask)
 		if (!test_bit(ss->subsys_id, &subsys_mask))
 			continue;
 
-		list_for_each_entry(set, &ss->cftsets, node) {
-			ret = cgroup_addrm_files(cgrp, ss, set->cfts, true);
-			if (ret < 0)
-				goto err;
-		}
+		list_for_each_entry(set, &ss->cftsets, node)
+			cgroup_addrm_files(cgrp, ss, set->cfts, true);
 	}
 
 	/* This cgroup is ready now */
@@ -4163,9 +4157,6 @@ static int cgroup_populate_dir(struct cgroup *cgrp, unsigned long subsys_mask)
 	}
 
 	return 0;
-err:
-	cgroup_clear_dir(cgrp, subsys_mask);
-	return ret;
 }
 
 static void css_dput_fn(struct work_struct *work)

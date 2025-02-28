@@ -415,13 +415,19 @@ static void __put_css_set(struct css_set *cset, int taskexit)
 		list_del(&link->cg_link_list);
 		list_del(&link->cgrp_link_list);
 
-		/* @cgrp can't go away while we're holding css_set_lock */
+		/*
+		 * We may not be holding cgroup_mutex, and if cgrp->count is
+		 * dropped to 0 the cgroup can be destroyed at any time, hence
+		 * rcu_read_lock is used to keep it alive.
+		 */
+		rcu_read_lock();
 		if (atomic_dec_and_test(&cgrp->count) &&
 		    notify_on_release(cgrp)) {
 			if (taskexit)
 				set_bit(CGRP_RELEASABLE, &cgrp->flags);
 			check_for_release(cgrp);
 		}
+		rcu_read_unlock();
 
 		kmem_cache_free(cg_link_pool, link);
 	}
@@ -4414,19 +4420,11 @@ static int cgroup_destroy_locked(struct cgroup *cgrp)
 	struct cgroup *parent = cgrp->parent;
 	struct cgroup_event *event, *tmp;
 	struct cgroup_subsys *ss;
-	bool empty;
 
 	lockdep_assert_held(&d->d_inode->i_mutex);
 	lockdep_assert_held(&cgroup_mutex);
 
-	/*
-	 * css_set_lock prevents @cgrp from being removed while
-	 * __put_css_set() is in progress.
-	 */
-	read_lock(&css_set_lock);
-	empty = !atomic_read(&cgrp->count) && list_empty(&cgrp->children);
-	read_unlock(&css_set_lock);
-	if (!empty)
+	if (atomic_read(&cgrp->count) || !list_empty(&cgrp->children))
 		return -EBUSY;
 
 	/*
@@ -5123,6 +5121,8 @@ void cgroup_exit(struct task_struct *tsk, int run_callbacks)
 
 static void check_for_release(struct cgroup *cgrp)
 {
+	/* All of these checks rely on RCU to keep the cgroup
+	 * structure alive */
 	if (cgroup_is_releasable(cgrp) &&
 	    !atomic_read(&cgrp->count) && list_empty(&cgrp->children)) {
 		/*

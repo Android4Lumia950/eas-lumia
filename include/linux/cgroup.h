@@ -20,7 +20,6 @@
 #include <linux/workqueue.h>
 #include <linux/xattr.h>
 #include <linux/fs.h>
-#include <linux/percpu-refcount.h>
 
 #ifdef CONFIG_CGROUPS
 
@@ -73,8 +72,13 @@ struct cgroup_subsys_state {
 	 */
 	struct cgroup *cgroup;
 
-	/* reference count - access via css_[try]get() and css_put() */
-	struct percpu_ref refcnt;
+	/*
+	 * State maintained by the cgroup system to allow subsystems
+	 * to be "busy". Should be accessed via css_get(),
+	 * css_tryget() and css_put().
+	 */
+
+	atomic_t refcnt;
 
 	unsigned long flags;
 	/* ID for this css, if possible */
@@ -100,8 +104,10 @@ static inline void css_get(struct cgroup_subsys_state *css)
 {
 	/* We don't need to reference count the root state */
 	if (!(css->flags & CSS_ROOT))
-		percpu_ref_get(&css->refcnt);
+		atomic_inc(&css->refcnt);
 }
+
+extern bool __css_tryget(struct cgroup_subsys_state *css);
 
 /**
  * css_tryget - try to obtain a reference on the specified css
@@ -117,8 +123,10 @@ static inline bool css_tryget(struct cgroup_subsys_state *css)
 {
 	if (css->flags & CSS_ROOT)
 		return true;
-	return percpu_ref_tryget(&css->refcnt);
+	return __css_tryget(css);
 }
+
+extern void __css_put(struct cgroup_subsys_state *css);
 
 /**
  * css_put - put a css reference
@@ -129,7 +137,7 @@ static inline bool css_tryget(struct cgroup_subsys_state *css)
 static inline void css_put(struct cgroup_subsys_state *css)
 {
 	if (!(css->flags & CSS_ROOT))
-		percpu_ref_put(&css->refcnt);
+		__css_put(css);
 }
 
 /* bits in struct cgroup flags field */
@@ -229,10 +237,9 @@ struct cgroup {
 	struct list_head pidlists;
 	struct mutex pidlist_mutex;
 
-	/* For css percpu_ref killing and RCU-protected deletion */
+	/* For RCU-protected deletion */
 	struct rcu_head rcu_head;
 	struct work_struct destroy_work;
-	atomic_t css_kill_cnt;
 
 	/* List of events which userspace want to receive */
 	struct list_head event_list;

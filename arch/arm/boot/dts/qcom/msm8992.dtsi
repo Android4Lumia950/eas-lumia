@@ -23,7 +23,7 @@
 	interrupt-parent = <&intc>;
 
 	chosen {
-		bootargs = "noirqdebug";
+		bootargs = "noirqdebug rcu_nocbs=0-3";
 	};
 
 	aliases {

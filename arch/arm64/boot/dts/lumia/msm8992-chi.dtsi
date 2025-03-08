@@ -35,6 +35,10 @@
 	 };
  };
  
+&sdhc_1 {
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 172000000 344000000>;	
+};
+
  &soc {
 		 i2c_1: i2c@f9923000 {
 		 compatible = "qcom,i2c-msm-v2";
@@ -134,7 +138,7 @@
  };
  
  &usb_otg_switch {
-	 status = "ok";
+	 status = "disabled";
  };
  &qusb_phy {
 	 status = "disabled";

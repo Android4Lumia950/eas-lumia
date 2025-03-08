@@ -48,7 +48,6 @@
 		qcom,mdss-dsi-bllp-eof-power-mode;
 		qcom,mdss-dsi-bllp-power-mode;
 		qcom,cmd-sync-wait-broadcast;
-		qcom,cont-splash-enabled;
 		qcom,mdss-dsi-lane-0-state;
 		qcom,mdss-dsi-lane-1-state;
 		qcom,mdss-dsi-lane-2-state;
@@ -73,22 +72,35 @@
 		qcom,mdss-dsi-te-check-enable;
 		qcom,mdss-dsi-te-using-te-pin;
 		qcom,mdss-dsi-on-command = [
-			/* exit_sleep_mode, wait 5ms */
-			05 01 00 00 05 00 02 11 00
-			/* sergej_unlock_level */
-	   		39 01 00 00 00 00 03 F0 5A 5A
-       		15 01 00 00 00 00 02 F2 63
-       		39 01 00 00 00 00 07 BD 11 01 02 16 02 16
-			/* sergej_lock_level */
-       		39 01 00 00 17 00 03 F0 A5 A5
+			/* exit_sleep_mode, wait 120ms */
+	   		05 01 00 00 78 00 02 11 00 
+			/* duke_unlock_level */
+	   		39 01 00 00 00 00 03 F0 5A 5A 
+       		39 01 00 00 00 00 04 BD 05 02 16 
+       		15 01 00 00 00 00 02 FF 02	
+
+			39 01 00 00 00 00 06 B9 10 08 D4 08 DC
+			39 01 00 00 00 00 02 B0 06
+			39 01 00 00 00 00 02 B0 06
+			39 01 00 00 00 00 04 B2 10 10 10
+
+			/* duke_lock_level */
+       		39 01 00 00 00 00 03 F0 A5 A5 
+
+			/*refreshrate calibration */
+	   		39 01 00 00 00 00 03 F0 5A 5A 
+			39 01 00 00 00 00 02 B0 02	//Global param
+			39 01 00 00 00 00 03 F2 01 A4 //Refreshrate
+       		39 01 00 00 00 00 03 F0 A5 A5 
+			
 			/* write ctrl display */
-       		15 01 00 00 00 00 02 53 20
+       		15 01 00 00 00 00 02 53 20 
 			/* write display brightness */
-       		15 01 00 00 00 00 02 51 80
+       		15 01 00 00 00 00 02 51 80 
 			/* set tear on */
        		15 01 00 00 00 00 02 35 00
 			/* set_display_on */
-       		05 01 00 00 00 00 02 29 00
+       		05 01 00 00 13 00 02 29 00
 			];
 
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
@@ -136,7 +148,6 @@
 		qcom,mdss-dsi-bllp-power-mode;
 		qcom,cmd-sync-wait-broadcast;
 		qcom,cmd-sync-wait-trigger;
-		qcom,cont-splash-enabled;
 		qcom,mdss-dsi-lane-0-state;
 		qcom,mdss-dsi-lane-1-state;
 		qcom,mdss-dsi-lane-2-state;

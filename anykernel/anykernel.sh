@@ -12,9 +12,9 @@ do.cleanup=1
 do.cleanuponabort=0
 device.name1=bullhead
 device.name2=nexus5x
-device.name3=5x
+device.name3=angler
 device.name4=talkman
-device.name5=lumia950
+device.name5=cityman
 '; } # end properties
 
 

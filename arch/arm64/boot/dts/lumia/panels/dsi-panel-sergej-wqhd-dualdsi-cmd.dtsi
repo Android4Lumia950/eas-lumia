@@ -47,6 +47,7 @@
 		qcom,mdss-dsi-lane-hs = <1>;
 		qcom,mdss-dsi-bllp-eof-power-mode;
 		qcom,mdss-dsi-bllp-power-mode;
+        qcom,ulps-enabled;
 		qcom,cmd-sync-wait-broadcast;
 		qcom,mdss-dsi-lane-0-state;
 		qcom,mdss-dsi-lane-1-state;
@@ -58,6 +59,7 @@
 		qcom,mdss-dsi-reset-sequence = <1 17>, <0 17>, <1 17>;
 		qcom,mdss-dsi-t-clk-post = <0x5>;
 		qcom,mdss-dsi-t-clk-pre = <0x5e>;
+        qcom,dynamic-dsi-timing-enable;
 
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <128>;
@@ -113,6 +115,9 @@
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 		qcom,mdss-pan-physical-width-dimension = <65>;
 		qcom,mdss-pan-physical-height-dimension = <115>;
+		qcom,panel-roi-alignment = <8 8 1 1 1 1>;
+		qcom,partial-update-enabled;
+		qcom,partial-update-roi-merge;
 	};
 	
 	dsi_sergej_wqhd_dsi1_cmd: qcom,mdss_dsi_sergej_wqhd_dsi1_cmd {
@@ -146,6 +151,7 @@
 		qcom,mdss-dsi-lane-hs = <1>;
 		qcom,mdss-dsi-bllp-eof-power-mode;
 		qcom,mdss-dsi-bllp-power-mode;
+        qcom,ulps-enabled;
 		qcom,cmd-sync-wait-broadcast;
 		qcom,cmd-sync-wait-trigger;
 		qcom,mdss-dsi-lane-0-state;
@@ -158,6 +164,7 @@
 		qcom,mdss-dsi-reset-sequence = <1 17>, <0 17>, <1 17>;
 		qcom,mdss-dsi-t-clk-post = <0x5>;
 		qcom,mdss-dsi-t-clk-pre = <0x5e>;
+        qcom,dynamic-dsi-timing-enable;
 
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <128>;
@@ -200,5 +207,8 @@
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 		qcom,mdss-pan-physical-width-dimension = <65>;
 		qcom,mdss-pan-physical-height-dimension = <115>;
+		qcom,panel-roi-alignment = <8 8 1 1 1 1>;
+		qcom,partial-update-enabled;
+		qcom,partial-update-roi-merge;
 	};
 };

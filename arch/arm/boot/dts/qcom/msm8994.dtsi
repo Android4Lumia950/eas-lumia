@@ -24,7 +24,7 @@
 	interrupt-parent = <&intc>;
 
 	chosen {
-		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
+		bootargs = "noirqdebug norandmaps";
 	};
 
 	aliases {
@@ -3195,25 +3195,18 @@
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <7>;
-		qcom,poll-ms = <250>;
+		qcom,poll-ms = <1000>;
 		qcom,limit-temp = <60>;
-		qcom,temp-hysteresis = <10>;
-		qcom,therm-reset-temp = <115>;
-		qcom,freq-step = <2>;
-		qcom,freq-control-mask = <0xff>;
-		qcom,core-limit-temp = <80>;
+		qcom,temp-hysteresis = <5>;
+		qcom,therm-reset-temp = <120>;
+		qcom,freq-step = <1>;
+		qcom,core-limit-temp = <70>;
 		qcom,core-temp-hysteresis = <10>;
-		qcom,core-control-mask = <0xfe>;
-		qcom,hotplug-temp = <105>;
-		qcom,hotplug-temp-hysteresis = <40>;
-		qcom,cpu-sensors = "tsens_tz_sensor7", "tsens_tz_sensor8",
-				   "tsens_tz_sensor9", "tsens_tz_sensor10",
-				   "tsens_tz_sensor13", "tsens_tz_sensor14",
-				   "tsens_tz_sensor15", "tsens_tz_sensor6";
-		qcom,freq-mitigation-temp = <95>;
-		qcom,freq-mitigation-temp-hysteresis = <10>;
-		qcom,freq-mitigation-value = <960000>;
-		qcom,freq-mitigation-control-mask = <0xF0>;
+		qcom,core-control-list = <&CPU2 &CPU3 &CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,hotplug-temp = <100>;
+		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,cpu-sensors = "tsens_tz_sensor7", "tsens_tz_sensor8", "tsens_tz_sensor9", "tsens_tz_sensor10", "tsens_tz_sensor13", "tsens_tz_sensor14", "tsens_tz_sensor15", "tsens_tz_sensor6";
+		qcom,disable-freq-mitigation;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
 		qcom,mx-restriction-temp = <5>;

@@ -1,29 +1,22 @@
-&dfps_data_mem {
-	status = "disabled";
-};
-
-&cont_splash_mem {
-	reg = <0 0x03400000 0 0xc00000>;
-};
-
-/* ref: msm8937.dtsi */
-
 / {
-    memory {
-	#address-cells = <2>;
-	#size-cells = <2>;
+	memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
 
-        ramoops_mem: ramoops_region@0 {
-	  linux,reserve-contiguous-region;
-	  linux,reserve-region;
-	  reg = <0 0x1fe00000 0 0x00200000>;
-	  linux,remove-completely;
-	  label = "ramoops_mem";
+		ramoops_mem: ramoops_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			/* Hardboot: reserve 1MB of space
+			 * before ramoops address of 0x1fe00000
+			 */
+			reg = <0 0x1fd00000 0 0x00300000>;
+			linux,remove-completely;
+			label = "ramoops_mem";
+		};
 	};
-    };
 };
 
-   &soc {
+&soc {
 	ramoops {
 		compatible = "ramoops";
 		status = "ok";
@@ -38,7 +31,27 @@
 		linux,contiguous-region = <&ramoops_mem>;
 		android,ramoops-hole {
 			compatible = "qcom,msm-contig-mem";
-			qcom,memblock-reserve = <0x1fe00000 0x00200000>;
+			/* Hardboot: reserve 1MB */
+			qcom,memblock-reserve = <0x1fd00000 0x00300000>;
 		};
 	};
-   };
+};
+
+&dfps_data_mem {
+	status = "disabled";
+};
+
+&cont_splash_mem {
+	reg = <0 0x03400000 0 0xc00000>;
+};
+
+&peripheral_mem {
+	reg = <0 0xce00000 0 0x1c00000>;
+};
+
+&modem_mem {
+	reg = <0 0x07400000 0 0x5a00000>;
+};
+
+
+

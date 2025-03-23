@@ -22,12 +22,12 @@
  #include "common/sidekeys.dtsi"
  #include "common/audio.dtsi"
  #include "common/adc.dtsi"
-// #include "common/charger.dtsi"
+ #include "common/charger.dtsi"
  #include "common/mdss.dtsi"
  #include "common/hdmi.dtsi"
  #include "common/reserved-memory.dtsi"
-
- #include "panels/dsi-panel-sergej-wqhd-dualdsi-cmd.dtsi"
+ 
+ #include "panels/dsi-panel-duke-wqhd-dualdsi-cmd.dtsi"
  
  #include "common/regulator.dtsi"
  
@@ -40,78 +40,26 @@
 		 qcom,recharge-thresh-mv = <100>;
 	 };
  };
-
-&peripheral_mem {
-	reg = <0 0xca00000 0 0x1800000>;
-};
-&modem_mem {
-	reg = <0 0x07000000 0 0x5a00000>;
-};
-
- &pmi8994_fg {
-	status = "ok";
-	qcom,charger = <&pmi8994_charger>;
-	qcom,fg-vbatt-low-threshold = <4200>;
-	qcom,resume-soc = <99>;
-	qcom,resume-soc-raw = <253>;
-	qcom,fg-iterm-ma = <200>;
-	qcom,fg-chg-iterm-ma = <200>;
-	qcom,fg-cutoff-voltage-mv = <2800>;
-	qcom,warm-bat-decidegc = <450>;
-	qcom,hot-bat-decidegc = <550>;
-	qcom,cool-bat-decidegc = <(-50)>;
-	qcom,cold-bat-decidegc = <(-100)>;
-	qcom,vbat-estimate-diff-mv = <200>;
-	qcom,thermal-coefficients = [c2 86 bb 50 cf 37];
-};
-
- /{
-	 cityman_batterydata: qcom,battery-data {
-		 qcom,batt-id-range-pct = <15>;
-		 #include "microsoft_bvt4d_3340mah.dtsi"
-	 };
- };
  
-&pmi8994_charger {
-	status = "ok";
-	qcom,battery-data = <&cityman_batterydata>;
-	qcom,charge-unknown-battery;
-	qcom,iterm-ma = <200>;
-	//qcom,fastchg-current-ma = <2600>;
-	//qcom,fastchg-down-current-ma = <1800>;
-	//qcom,float-voltage-comp = <13>; /* 4.1V */
-	//qcom,resume-delta-mv = <200>;
-	//qcom,charging-timeout-mins = <768>;
-	//qcom,parallel-usb-min-current-ma = <700>;
-	//qcom,parallel-allowed-lowering-ma = <3000>;
-	qcom,chg-vadc = <&pmi8994_vadc>;
-	qcom,dc-psy-type = "Wireless";
-	qcom,dc-psy-ma = <900>;
-	qcom,usb-cc-controller;
-	qcom,disable-apsd;
-	qcom,disable-hvdcp;
-	qcom,customized-jeita;
-	/delete-property/ qcom,thermal-mitigation;
-	qcom,ibat-thermal-mitigation = <1400 1200 600 1200 300 1200 100 600 0 0>;
-};
-
-&sdhc_1 {
-	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 192000000 384000000>;
-};
-
  &mdss_mdp {
 	 qcom,mdss-pref-prim-intf = "dsi";
-	 //status="disabled";
  };
  
  &mdss_dsi0 {
-	//status="disabled";
-	 qcom,dsi-pref-prim-pan = <&dsi_sergej_wqhd_dsi0_cmd>;
+	 qcom,dsi-pref-prim-pan = <&dsi_duke_wqhd_dsi0_cmd>;
  };
  
  &mdss_dsi1 {
-	//status="disabled";
-	 qcom,dsi-pref-prim-pan = <&dsi_sergej_wqhd_dsi1_cmd>;
+	 qcom,dsi-pref-prim-pan = <&dsi_duke_wqhd_dsi1_cmd>;
+ };
+ 
+ &labibb {
+	 status = "ok";
+	 qpnp,qpnp-labibb-mode = "oled";
+ };
+ 
+ &ibb_regulator {
+	 qcom,qpnp-ibb-discharge-resistor = <32>;
  };
  
  &pm8994_gpios {
@@ -288,33 +236,42 @@
  
  &usb3 {
 	 status = "ok";
-	 qcom,usbin-vadc = <&pmi8994_vadc>;
-	 qcom,internal-chg-detect;
- 
-	 dwc3@f9200000 {
-		 maximum-speed = "high-speed";
-		 no-set-vbus-power;
-	 };
  };
  
  &hsphy0 {
 	 status = "ok";
-	 qcom,hsphy-init-host = <0x00D191A4>;
-	 qcom,hsphy-init = <0x00D1D9A4>;
-	 qcom,charger = <&pmi8994_charger>;
  };
  
  &ssphy0 {
 	 status = "ok";
  };
  
- &usb_otg_switch {
-	 status = "disabled";
+ &qcom_crypto1fde {
+	 status = "okay";
  };
-
+ 
+ &qcom_crypto2fde {
+	 status = "okay";
+ };
+ 
+ &qcom_crypto1pfe {
+	 status = "okay";
+ };
+ 
+ &qcom_crypto2pfe {
+	 status = "okay";
+ };
+ 
  &qcom_cedev {
 	 status = "okay";
  };
+ 
+ ///{
+ //	mtp_batterydata: qcom,battery-data {
+ //		qcom,batt-id-range-pct = <15>;
+ //		#include "batterydata-itech-3000mah.dtsi"
+ //	};
+ //};
  
  &cnss {
 	 pinctrl-names = "default";
@@ -323,9 +280,10 @@
  
  &usb_ehci {
 	 status = "ok";
+	 qcom,usb2-enable-uicc;
  };
  
  &qusb_phy {
-	 status = "disabled";
+	 status = "ok";
  };
  

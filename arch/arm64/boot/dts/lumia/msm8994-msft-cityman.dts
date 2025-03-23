@@ -18,7 +18,7 @@
 
 / {
 	model = "Microsoft Lumia 950 XL";
-	compatible = "qcom,msm8994-chi", "qcom,msm8994", "microsoft,cityman";
+	compatible = "qcom,msm8994-cityman", "qcom,msm8994", "qcom,cityman";
 	qcom,msm-id = <0xcf 00020001 0x0001001a 0>;
 	qcom,board-id = <26 0>;
 	qcom,pmic-id = <0x20009 0x2000a 0x0 0x0>;

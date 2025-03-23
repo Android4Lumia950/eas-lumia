@@ -155,7 +155,7 @@ enum {
 	SWP_STABLE_WRITES = (1 << 9),	/* no overwrite PG_writeback pages */
 	SWP_FAST	= (1 << 10),	/* blkdev access is fast and cheap */
 					/* add others here before... */
-	SWP_SCANNING	= (1 << 11),	/* refcount in scan_swap_map */
+	SWP_SCANNING	= (1 << 9),	/* refcount in scan_swap_map */
 };
 
 #define SWAP_CLUSTER_MAX 32UL

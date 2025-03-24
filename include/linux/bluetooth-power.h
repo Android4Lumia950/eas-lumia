@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,8 @@ struct bt_power_vreg_data {
 	/* voltage levels to be set */
 	unsigned int low_vol_level;
 	unsigned int high_vol_level;
+	/* current level to be set */
+	unsigned int load_uA;
 	/*
 	 * is set voltage supported for this regulator?
 	 * false => set voltage is not supported
@@ -56,6 +58,8 @@ struct bluetooth_power_platform_data {
 	struct bt_power_vreg_data *bt_vdd_ldo;
 	/* VDD_XTAL voltage regulator */
 	struct bt_power_vreg_data *bt_vdd_xtal;
+	/* VDD_CORE voltage regulator */
+	struct bt_power_vreg_data *bt_vdd_core;
 	/* Optional: chip power down gpio-regulator
 	 * chip power down data is required when bluetooth module
 	 * and other modules like wifi co-exist in a single chip and

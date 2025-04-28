@@ -1,0 +1,162 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "../qcom/msm8992-pinctrl.dtsi"
+#include "../qcom/msm8992-camera-sensor-mtp.dtsi"
+#include "panels/dsi-panel-duke-wqhd-dualdsi-cmd.dtsi"
+#include "common/pinctrl.dtsi"
+#include "common/regulator.dtsi"
+#include "common/connectivity.dtsi"
+#include "common/sdhc.dtsi"
+#include "common/haptics.dtsi"
+#include "common/touch.dtsi"
+#include "common/silabs.dtsi"
+#include "common/sidekeys.dtsi"
+#include "common/audio.dtsi"
+#include "common/adc.dtsi"
+#include "common/charger.dtsi"
+#include "common/hdmi.dtsi"
+#include "common/mdss.dtsi"
+#include "common/reserved-memory.dtsi"
+#include "common/nfc.dtsi"
+#include "common/gpios.dtsi"
+
+/ {
+	aliases {
+		i2c1 = &i2c_1;
+	};
+};
+
+&i2c_6 {
+	status = "ok";
+	smb1358-charger {
+		status = "ok";
+		compatible = "qcom,smb1358-charger";
+		reg = <0x1c>;
+		qcom,parallel-charger;
+		qcom,iterm-ma = <100>;
+		qcom,float-voltage-mv = <4460>;
+		qcom,recharge-thresh-mv = <100>;
+		qcom,charging-timeout-mins = <768>;
+	};
+};
+
+&soc {
+	i2c_1: i2c@f9923000 {
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0xf9923000 0x1000>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 95 0>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp1_qup1_i2c_apps_clk>;
+ 
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_1_active>;
+		pinctrl-1 = <&i2c_1_sleep>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		qcom,master-id = <86>;
+		dmas = <&dma_blsp1 10 64 0x20000020 0x20>,
+			<&dma_blsp1 11 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+ 
+	};
+
+	tlmm_pinmux: pinctrl@fd510000 {
+		compatible = "qcom,msm-tlmm-8994", "qcom,msm-tlmm-8974";
+		reg = <0xfd510000 0x4000>;
+		interrupts = <0 208 0>;
+ 
+		pmx_i2c_1 {
+			qcom,pins = <&gp 2>, <&gp 3>; /* SDA, SCL */
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "pmx_i2c_1";
+ 
+			status = "disabled";
+ 
+			i2c_1_active: i2c_1_active {
+				drive-strength = <2>;
+				bias-disable;
+			};
+ 
+			i2c_1_sleep: i2c_1_sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_duke_wqhd_dsi0_cmd>;
+};
+
+&mdss_dsi1 {
+	qcom,dsi-pref-prim-pan = <&dsi_duke_wqhd_dsi1_cmd>;
+};
+
+&usb3 {
+	status = "ok";
+	qcom,usbin-vadc = <&pmi8994_vadc>;
+	qcom,internal-chg-detect;
+ 
+	dwc3@f9200000 {
+		maximum-speed = "high-speed";
+		no-set-vbus-power;
+	};
+};
+
+&hsphy0 {
+	status = "ok";
+	qcom,hsphy-init-host = <0x00D191A4>;
+	qcom,hsphy-init = <0x00D1D9A4>;
+	qcom,charger = <&pmi8994_charger>;
+};
+
+&ssphy0 {
+	status = "ok";
+};
+
+&usb_otg_switch {
+	status = "disabled";
+};
+
+&qusb_phy {
+	status = "disabled";
+};
+
+&blsp2_uart2 {
+	status = "ok";
+};
+
+/{
+	talkman_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "battery/microsoft_bvt5e_3000mah.dtsi"
+	};
+};
+
+&pmi8994_charger {
+	qcom,battery-data = <&talkman_batterydata>;
+};
+
+&pcie0 {
+	/delete-property/ qcom,vbg-opt;
+	/delete-property/ qcom,ep-wakeirq;
+};

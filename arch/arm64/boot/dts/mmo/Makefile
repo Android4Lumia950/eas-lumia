@@ -1,7 +1,7 @@
 ifeq ($(CONFIG_OF),y)
 
-dtb-$(CONFIG_ARCH_MSM8994) += msm8992-msft-talkman.dtb \
-							  msm8994-msft-cityman.dtb
+dtb-$(CONFIG_ARCH_MSM8994) += msm8992-mmo-talkman.dtb \
+							  msm8994-mmo-cityman.dtb
 
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES))
 ifneq ($(DTB_NAMES),)

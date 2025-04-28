@@ -10,28 +10,16 @@
  * GNU General Public License for more details.
  */
 
-&mdss_mdp {
-	qcom,mdss-pref-prim-intf = "dsi";
-};
+/dts-v1/;
 
-&pmx_mdss {
-	qcom,num-grp-pins = <1>;
-	qcom,pins = <&gp 78>;
-};
+#include "../qcom/msm8994-v2.1.dtsi"
+#include "../qcom/msm8994-pinctrl.dtsi"
+#include "msm8994-chi.dtsi"
 
-&pmx_mdss_te {
-	qcom,num-grp-pins = <1>;
-	qcom,pins = <&gp 10>;
-};
-
-&mdss_dsi0 {
-    //panel name will be included from the dtsi
-	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-
-	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
-	qcom,platform-te-gpio = <&msm_gpio 10 0>;
-
-	vddio-supply = <&pm8994_s4>;
+/ {
+	model = "Microsoft Lumia 950 XL";
+	compatible = "qcom,msm8994", "mmo,cityman";
+	qcom,msm-id = <0xcf 00020001 0x0001001a 0>;
+	qcom,board-id = <26 0>;
+	qcom,pmic-id = <0x20009 0x2000a 0x0 0x0>;
 };

@@ -1,0 +1,121 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "qcom/msm8994-pinctrl.dtsi"
+#include "qcom/msm8994-camera-sensor-mtp.dtsi"
+#include "panels/dsi-panel-sergej-wqhd-dualdsi-cmd.dtsi"
+#include "common/pinctrl.dtsi"
+#include "common/connectivity.dtsi"
+#include "common/sdhc.dtsi"
+#include "common/haptics.dtsi"
+#include "common/touch.dtsi"
+#include "common/silabs.dtsi"
+#include "common/sidekeys.dtsi"
+#include "common/audio.dtsi"
+#include "common/adc.dtsi"
+#include "common/charger.dtsi"
+#include "common/mdss.dtsi"
+#include "common/hdmi.dtsi"
+#include "common/reserved-memory.dtsi"
+#include "common/regulator.dtsi"
+#include "common/gpios.dtsi"
+
+
+&i2c_5 {
+	smb1357-charger@1c {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x1c>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-thresh-mv = <100>;
+	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_sergej_wqhd_dsi0_cmd>;
+};
+
+&mdss_dsi1 {
+	qcom,dsi-pref-prim-pan = <&dsi_sergej_wqhd_dsi1_cmd>;
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "oled";
+};
+
+&ibb_regulator {
+	qcom,qpnp-ibb-discharge-resistor = <32>;
+};
+
+&blsp2_uart2 {
+	status = "ok";
+};
+
+&blsp1_uart2 {
+	status= "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&usb3 {
+	status = "ok";
+};
+
+&hsphy0 {
+	status = "ok";
+};
+
+&ssphy0 {
+	status = "ok";
+};
+
+&qcom_crypto1fde {
+	status = "okay";
+};
+
+&qcom_crypto2fde {
+	status = "okay";
+};
+
+&qcom_crypto1pfe {
+	status = "okay";
+};
+
+&qcom_crypto2pfe {
+	status = "okay";
+};
+
+&qcom_cedev {
+	status = "okay";
+};
+
+&usb_ehci {
+	status = "ok";
+	qcom,usb2-enable-uicc;
+};
+
+&qusb_phy {
+	status = "ok";
+};
+
+&pcie1 {
+	/delete-property/ qcom,ep-wakeirq;
+};

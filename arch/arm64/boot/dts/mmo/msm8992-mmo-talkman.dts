@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-
 /dts-v1/;
 
 #include "../qcom/msm8992.dtsi"
@@ -19,7 +18,7 @@
 
 / {
 	model = "Microsoft Lumia 950";
-	compatible = "qcom,msm8992-talkman", "qcom,msm8992", "qcom,talkman";
+	compatible = "qcom,msm8992", "mmo,talkman";
 	qcom,msm-id = <0xfb 00010000 0x0001001a 0>;
 	qcom,board-id = <26 0>;
 	qcom,pmic-id = <0x20009 0x2000a 0x0 0x0>;

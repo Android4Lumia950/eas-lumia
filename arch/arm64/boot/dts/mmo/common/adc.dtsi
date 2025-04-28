@@ -33,8 +33,19 @@
 		qcom,fast-avg-setup = <0>;
 	};
 
+	chan@8 {
+		label = "die_temp"; //PMIC_THERM
+		reg = <8>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <3>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
 	chan@73 {
-		label = "msm_therm";
+		label = "msm_therm"; //SYS_THERM1
 		reg = <0x73>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
@@ -45,7 +56,7 @@
 	};
 
 	chan@74 {
-		label = "emmc_therm";
+		label = "emmc_therm"; //SYS_THERM2
 		reg = <0x74>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
@@ -85,6 +96,17 @@
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <2>;
 		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@7c {
+		label = "xo_therm";
+		reg = <0x7c>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <4>;
+		qcom,hw-settle-time = <5>;
 		qcom,fast-avg-setup = <0>;
 	};
 };

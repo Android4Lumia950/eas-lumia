@@ -33,14 +33,14 @@
 	qcom,charge-unknown-battery;
 	qcom,iterm-ma = <100>;
 	qcom,float-voltage-comp = <13>; /* 4.1V */
-	//qcom,fastchg-current-comp = <500>; /* 500mA */
-	//qcom,fastchg-current-ma = <2600>;
-	//qcom,fastchg-down-current-ma = <1800>;
-	//qcom,float-voltage-mv = <4350>;
-	//qcom,resume-delta-mv = <200>;
-	//qcom,charging-timeout-mins = <768>;
-	//qcom,parallel-usb-min-current-ma = <700>;
-	//qcom,parallel-allowed-lowering-ma = <3000>;
+	qcom,fastchg-current-comp = <500>; /* 500mA */
+	qcom,fastchg-current-ma = <2600>;
+	qcom,fastchg-down-current-ma = <1800>;
+	qcom,float-voltage-mv = <4350>;
+	qcom,resume-delta-mv = <200>;
+	qcom,charging-timeout-mins = <768>;
+	qcom,parallel-usb-min-current-ma = <700>;
+	qcom,parallel-allowed-lowering-ma = <3000>;
 	qcom,chg-vadc = <&pmi8994_vadc>;
 	qcom,dc-psy-type = "Wireless";
 	qcom,dc-psy-ma = <900>;

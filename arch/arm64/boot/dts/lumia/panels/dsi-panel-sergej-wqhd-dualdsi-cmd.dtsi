@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*/
 &mdss_mdp {
 	dsi_sergej_wqhd_dsi0_cmd: qcom,mdss_dsi_sergej_wqhd_dsi0_cmd {
-		qcom,mdss-dsi-panel-name = "Sergej 1440p Dual 0 cmd mode dsi panel";
+		qcom,mdss-dsi-panel-name = "Sergej 1440p DualDSI CMD panel DSI0";
 		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
 		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
 		qcom,mdss-dsi-panel-destination = "display_1";
@@ -104,7 +104,7 @@
 	};
 	
 	dsi_sergej_wqhd_dsi1_cmd: qcom,mdss_dsi_sergej_wqhd_dsi1_cmd {
-		qcom,mdss-dsi-panel-name = "Sergej 1440p Dual 1 cmd mode dsi panel";
+		qcom,mdss-dsi-panel-name = "Sergej 1440p DualDSI CMD panel DSI1";
 		qcom,mdss-dsi-panel-controller = <&mdss_dsi1>;
 		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
 		qcom,mdss-dsi-panel-destination = "display_2";

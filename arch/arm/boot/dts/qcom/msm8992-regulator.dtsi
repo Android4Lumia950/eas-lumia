@@ -607,7 +607,7 @@
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <10>;
 
-		qcom,cpr-voltage-ceiling = <900000 900000 985000 1070000>;
+		qcom,cpr-voltage-ceiling = <900000 900000 1000000 1180000>;
 		qcom,cpr-voltage-floor =   <640000 700000  800000  850000>;
 		vdd-apc-supply = <&pm8994_s8>;
 
@@ -671,13 +671,13 @@
 
 		qcom,cpr-corner-map = <1 1 2 2 3 3 4 4 4 4>;
 		qcom,cpr-voltage-ceiling-override =
-				<0xFFFFFFFF 0  800000  800000  820000  840000
-					      860000 920000 960000 985000
-					      1000000 1020000>;
+				<0xFFFFFFFF 0  800000  800000  900000  900000
+					      1000000 1000000 1115000 1115000
+					      1180000 1180000>;
 		qcom,cpr-voltage-floor-override =
 				<0xFFFFFFFF 0  640000  655000  700000  735000
 					       800000  835000  850000  875000
-					       950000 999000>;
+					       950000 1000000>;
 		qcom,cpr-fuse-version-map =
 				<0 0xffffffff 0 0 0 0 0>,
 				<0 0xffffffff 1 0 0 0 0>,
@@ -776,7 +776,7 @@
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <15>;
 
-		qcom,cpr-voltage-ceiling = <900000 900000 1000000 1000000>;
+		qcom,cpr-voltage-ceiling = <900000 900000 1000000 1180000>;
 		qcom,cpr-voltage-floor =   <640000 640000  745000  850000>;
 		vdd-apc-supply = <&pm8994_s11>;
 
@@ -843,15 +843,15 @@
 
 		qcom,cpr-corner-map = <1 2 2 2 2 3 3 3 4 4 4 4 4 4 4>;
 		qcom,cpr-voltage-ceiling-override =
-				<0xFFFFFFFF 0  800000  800000  800000  800000
-					       800000 900000 900000 900000
-					      900000 900000 900000 925000
-					      935000 935000 970000>;
+				<0xFFFFFFFF 0  900000  900000  900000  900000
+					       900000 1000000 1000000 1000000
+					      1115000 1115000 1115000 1115000
+					      1115000 1115000 1180000>;
 		qcom,cpr-voltage-floor-override =
 				<0xFFFFFFFF 0  640000  640000  665000  690000
 					       735000  745000  770000  785000
-					       845000  850000  860000  870000
-					       905000  905000 940000>;
+					       850000  860000  880000  900000
+					       920000  935000 1000000>;
 		qcom,cpr-fuse-version-map =
 				<0xffffffff 0xffffffff 0 4 4 4 4>,
 				<0xffffffff 0xffffffff 1 4 4 4 4>,

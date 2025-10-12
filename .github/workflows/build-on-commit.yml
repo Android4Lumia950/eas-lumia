@@ -3,7 +3,7 @@ name: Release build
 on:
   push:
     branches:
-      - lineage-18.11  # Change to your branch name
+      - no-uv  # Change to your branch name
 
 env:
   CROSS_COMPILE_PREFIX: /aarch64-linux-android-4.9/bin/aarch64-linux-android-
@@ -20,7 +20,7 @@ jobs:
       - name: Checkout kernel repo
         uses: actions/checkout@v4
         with:
-          ref: lineage-18.11
+          ref: no-uv
           fetch-depth: 0
 
       - name: Cache toolchain

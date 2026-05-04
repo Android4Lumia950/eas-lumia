@@ -28,6 +28,7 @@
  #include "common/reserved-memory.dtsi"
  #include "common/nfc.dtsi"
  #include "common/ice40.dtsi"
+ #include "common/torch.dtsi"
  
  / {
 	 aliases {
